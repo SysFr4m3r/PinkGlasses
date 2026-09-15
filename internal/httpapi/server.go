@@ -177,8 +177,6 @@ func (s *Server) Routes() http.Handler {
 				// Enrolling a worker hands out a credential; scaling them
 				// creates containers on the host.
 				a.Post("/workers/enrollment-tokens", s.createEnrollmentToken)
-				a.Get("/workers/provision", s.getProvisionStatus)
-				a.Post("/workers/provision", s.scaleLocalWorkers)
 				a.Post("/workers/{workerID}/{action}", s.workerAction)
 				a.Delete("/workers/{workerID}", s.deleteWorker)
 			})

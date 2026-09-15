@@ -185,30 +185,6 @@ func (s *Store) DeleteWorker(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// DeleteLocalWorkersByContainer removes local worker rows whose backing
-// container is gone. A worker's name is its container hostname (the short id),
-// so a row matches when a removed full container id starts with that name.
-//
-// Only rows created by a real container are eligible (name length >= 8), and only
-// local ones — a VPS worker's record is never removed implicitly.
-func (s *Store) DeleteLocalWorkersByContainer(ctx context.Context, containerIDs []string) (int64, error) {
-	if len(containerIDs) == 0 {
-		return 0, nil
-	}
-	ct, err := s.Pool.Exec(ctx, `
-		DELETE FROM worker
-		WHERE kind = 'local'
-		  AND length(name) >= 8
-		  AND EXISTS (
-		        SELECT 1 FROM unnest($1::text[]) AS cid
-		        WHERE cid LIKE worker.name || '%'
-		      )`, containerIDs)
-	if err != nil {
-		return 0, err
-	}
-	return ct.RowsAffected(), nil
-}
-
 // ReviveWorker returns a stale worker to active. A worker that has just opened a
 // control channel is demonstrably alive, so leaving it stale would bench it
 // permanently: the dispatcher only leases to active workers, and nothing else

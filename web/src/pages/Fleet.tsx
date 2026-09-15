@@ -3,20 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { api, Worker } from "../api";
 import { Modal, Stat, Badge, useToast, Spinner, InfoDot } from "../components/ui";
 
-// Fleet management. Both kinds scan the same thing — your external attack surface.
-// They differ in where the traffic originates and how the worker enrols:
-//   local — beside the control plane, self-enrolling, your corporate egress IP
-//   vps   — a rented box, independent egress, a true outside-in view
+// Fleet management. Two kinds of worker, told apart by how they enrol:
+//   local — containers beside the control plane. The standing one runs the
+//           passive stages; a run's own fleet appears here while it runs and
+//           is destroyed with the run. Nobody creates these by hand.
+//   vps   — a rented box you enrol, an exit for active scans with its own
+//           address and a true outside-in view.
 export default function Fleet() {
   const toast = useToast();
   const { data: workers, refetch, isLoading } = useQuery({
     queryKey: ["workers"], queryFn: () => api.workers(), refetchInterval: 5000,
   });
-  const { data: prov, refetch: refetchProv } = useQuery({
-    queryKey: ["provision"], queryFn: () => api.provisionStatus(),
-  });
-
-  const [localOpen, setLocalOpen] = useState(false);
   const [vpsOpen, setVpsOpen] = useState(false);
 
   const local = (workers ?? []).filter((w) => w.kind === "local");
@@ -41,7 +38,7 @@ export default function Fleet() {
     try {
       const r = await api.deleteWorker(w.id);
       toast(r.warning ? "err" : "ok", r.warning ?? `Removed ${w.name}`);
-      refetch(); refetchProv();
+      refetch();
     } catch (e) {
       toast("err", String(e));
     }
@@ -53,35 +50,25 @@ export default function Fleet() {
         <div>
           <h2>Workers</h2>
           <div className="sub">
-            Both kinds scan the same thing — your external attack surface. Kind decides
-            only where the traffic comes from and how the worker enrols.
+            Local workers are containers beside the control plane: the standing one runs
+            passive discovery, and a run's own workers appear here while it runs. Remote
+            workers are boxes you enrol, and the exits an active scan can leave from.
           </div>
         </div>
         {isLoading && <Spinner />}
       </div>
 
       <div className="cards">
-        <Stat n={local.length} label="Local workers" hint="Scan from your corporate egress IP · free" />
-        <Stat n={remote.length} label="External (VPS)" hint="Scan from independent IPs · true outside-in view" />
+        <Stat n={local.length} label="Local workers" hint="Standing worker for passive stages, plus any run's own fleet while it runs" />
+        <Stat n={remote.length} label="External (VPS)" hint="Enrolled boxes · an exit for active scans" />
         <Stat n={(workers ?? []).filter((w) => w.status === "active").length} label="Active" hint="Currently leasing work" />
         <Stat n={(workers ?? []).reduce((a, w) => a + w.running_tasks, 0)} label="Running tasks" />
       </div>
 
       <div className="row">
-        <button onClick={() => setLocalOpen(true)}>+ Add local worker</button>
-        <button className="ghost" onClick={() => setVpsOpen(true)}>+ Add VPS worker</button>
-        {prov && !prov.enabled && (
-          <span className="muted" style={{ fontSize: 12.5 }}>
-            Provisioner not configured — local workers are managed from the CLI.
-          </span>
-        )}
+        <button onClick={() => setVpsOpen(true)}>+ Add VPS worker</button>
       </div>
 
-      <LocalModal
-        open={localOpen} onClose={() => setLocalOpen(false)}
-        enabled={!!prov?.enabled} running={local.length} reason={prov?.reason}
-        onDone={() => { refetch(); refetchProv(); }}
-      />
       <VPSModal open={vpsOpen} onClose={() => setVpsOpen(false)} />
 
       <WorkerTable title="Local workers" workers={local} act={act} onDelete={setPendingDelete} />
@@ -104,94 +91,6 @@ export default function Fleet() {
         </p>
       </Modal>
     </div>
-  );
-}
-
-/* ---------- create local workers ---------- */
-
-function LocalModal({
-  open, onClose, enabled, running, onDone, reason,
-}: {
-  open: boolean; onClose: () => void; enabled: boolean;
-  running: number; onDone: () => void; reason?: string;
-}) {
-  const toast = useToast();
-  const [count, setCount] = useState(Math.max(1, running || 1));
-  const [busy, setBusy] = useState(false);
-
-  async function apply() {
-    setBusy(true);
-    try {
-      const r = await api.scaleLocal(count);
-      toast("ok", `Local workers: ${r.target} (created ${r.created}, removed ${r.removed})`);
-      onDone();
-      onClose();
-    } catch (e) {
-      toast("err", String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      title="Local workers" open={open} onClose={onClose}
-      footer={enabled ? (
-        <>
-          <button className="ghost" onClick={onClose}>Cancel</button>
-          <button onClick={apply} disabled={busy}>{busy ? "Applying…" : `Run ${count} worker${count === 1 ? "" : "s"}`}</button>
-        </>
-      ) : <button className="ghost" onClick={onClose}>Close</button>}
-    >
-      <p className="muted" style={{ marginTop: 0 }}>
-        Local workers run as containers beside the control plane and self-enroll. They
-        scan your external targets exactly like a VPS worker does — no box to rent —
-        with traffic leaving from your own egress address.
-      </p>
-
-      {enabled ? (
-        <>
-          <div className="field">
-            <label>How many should run</label>
-            <div className="counter">
-              <button className="ghost" onClick={() => setCount((c) => Math.max(0, c - 1))}>−</button>
-              <div className="val">{count}</div>
-              <button className="ghost" onClick={() => setCount((c) => Math.min(20, c + 1))}>+</button>
-            </div>
-            <div className="hint">
-              Currently running: {running}. Scaling down removes the newest containers
-              first, so long-running scans keep their workers.
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="sev-high" style={{ marginTop: 0 }}>
-            The provisioner can't create workers right now.
-          </p>
-          {reason && (
-            <>
-              <div className="l" style={{ marginBottom: 4 }}>Reported cause</div>
-              <div className="pre" style={{ marginBottom: 12 }}>{reason}</div>
-            </>
-          )}
-          <p className="muted" style={{ fontSize: 13 }}>
-            Common causes: the service isn't running (starting only some services, e.g.
-            <span className="mono"> docker compose up -d api</span>, leaves it down — use
-            <span className="mono"> docker compose up -d</span>); or
-            <span className="mono"> permission denied</span> on the Docker socket, which means
-            <span className="mono"> ASM_DOCKER_GID</span> in your <span className="mono">.env</span> doesn't
-            match <span className="mono">stat -c %g /var/run/docker.sock</span>.
-            Meanwhile you can create workers from the CLI:
-          </p>
-          <div className="pre">docker compose up -d --scale worker={Math.max(1, running + 1)}</div>
-          <p className="hint muted">
-            To enable the button, set <span className="mono">ASM_PROVISIONER_TOKEN</span> and
-            keep the <span className="mono">provisioner</span> service in docker-compose.yml.
-          </p>
-        </>
-      )}
-    </Modal>
   );
 }
 

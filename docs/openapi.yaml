@@ -1203,39 +1203,7 @@ paths:
   /api/v1/workers/enrollment-tokens:
     post:
       operationId: postWorkersEnrollmentTokens
-      summary: "local, name, pool_id, ttl_mins, max_uses} → for vps: {token, install_command, expires_in}; for local`: the compose command"
-      x-required-role: admin
-      security:
-        - session: []
-        - token: []
-        - proxy: []
-      responses:
-        "200": {description: ok}
-        "201": {description: created}
-        "400": {$ref: "#/components/responses/e400"}
-        "401": {$ref: "#/components/responses/e401"}
-        "403": {$ref: "#/components/responses/e403"}
-        "404": {$ref: "#/components/responses/e404"}
-        "409": {$ref: "#/components/responses/e409"}
-  /api/v1/workers/provision:
-    get:
-      operationId: getWorkersProvision
-      summary: "{enabled, count} — whether a provisioner is configured and how many standing workers it runs"
-      x-required-role: admin
-      security:
-        - session: []
-        - token: []
-        - proxy: []
-      responses:
-        "200": {description: ok}
-        "400": {$ref: "#/components/responses/e400"}
-        "401": {$ref: "#/components/responses/e401"}
-        "403": {$ref: "#/components/responses/e403"}
-        "404": {$ref: "#/components/responses/e404"}
-        "409": {$ref: "#/components/responses/e409"}
-    post:
-      operationId: postWorkersProvision
-      summary: "{count} — scale the standing local workers"
+      summary: "{kind: vps, name, pool_id, ttl_mins, max_uses} → {token, install_command, expires_in}. kind: local is refused: the standing worker enrols itself and a run's fleet is built by the scheduler"
       x-required-role: admin
       security:
         - session: []

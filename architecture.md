@@ -826,31 +826,37 @@ re-enrollment, the scheduler deletes local workers that have been silent for 30 
 the fleet list reflects what is actually running. Remote workers are never auto-deleted —
 their history is forensic evidence.
 
-### 7.4 Creating local workers from the UI
+### 7.4 The provisioner, and why workers are never created by hand
 
-The fleet page can create local workers directly. Because that means creating
-containers, and the Docker socket is root-equivalent on the host, the capability is
-placed in a **separate `provisioner` service** rather than in the api:
+Creating containers means holding the Docker socket, which is root-equivalent on the
+host, so that capability lives in a **separate `provisioner` service** rather than in
+the api or the scheduler:
 
 ```mermaid
 flowchart LR
-    UI[Workers UI] -->|POST /workers/provision| API[api<br/>no socket access]
-    API -->|shared secret| PROV[provisioner<br/>ONLY holder of docker.sock]
-    PROV -->|create/remove labelled containers| D[(Docker Engine)]
-    D --> W[local worker containers]
-    W -->|self-enrol, auto-approve| GW[gateway]
+    SCH[scheduler<br/>fleet manager] -->|shared secret| PROV[provisioner<br/>ONLY holder of docker.sock]
+    PROV -->|build / remove labelled containers| D[(Docker Engine)]
+    D --> GW[vpn-gateway container]
+    D --> W[the run's worker containers<br/>share the gateway's netns]
+    W -->|self-enrol into the run's pool| G[gateway]
 ```
 
-Why the split: the api is internet-adjacent and holds a complete map of your attack
-surface — precisely the process that must not also hold host root. The provisioner
-speaks a fixed vocabulary (list / scale containers labelled `asm.managed=true`),
-refuses to touch any container without that label, enforces its own ceiling
-(`ASM_PROVISIONER_MAX_WORKERS`), and requires a shared secret. A bug or an RCE in the
-api therefore cannot become arbitrary Docker control.
+Its one caller is the scheduler's fleet manager (§7.6): a run that chose the local exit
+gets a VPN gateway and N workers built at start and removed at the end, whatever happened
+in between. The api asks the provisioner for nothing but the removal of a container whose
+worker was deleted from the fleet page. The provisioner speaks a fixed vocabulary (build,
+list and remove containers labelled `asm.managed=true`), refuses to touch any container
+without that label, enforces its own ceiling (`ASM_PROVISIONER_MAX_WORKERS`), and
+requires a shared secret. A bug or an RCE in the api therefore cannot become arbitrary
+Docker control.
 
-The service is optional. Remove it from `docker-compose.yml` and the api reports the
-feature as unavailable; the UI then shows the `docker compose --scale worker=N`
-command instead, and nothing else changes.
+There is deliberately no "add local worker" button. The standing `worker` service enrols
+itself with the bootstrap token and runs the passive stages; a run's own workers are
+built for that run and destroyed with it; and the standing local pool is never offered
+as an exit (`ListExitPools` counts remote workers only). The earlier UI control for
+scaling standing workers was removed once fleets existed: it presented local workers as a
+place to scan from, which is the one thing the exit design forbids. Extra passive
+capacity, if ever needed, is `docker compose up -d --scale worker=N`.
 
 ### 7.5 Pools, egress and placement
 

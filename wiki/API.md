@@ -204,9 +204,7 @@ Event kinds: `new_finding`, `finding_gone`, `finding_returned`, `new_port`,
 |---|---|---|
 | `GET /workers` | viewer | every worker: status, egress, load, tools, `run_scoped` for a run's own containers |
 | `GET /pools` | viewer | pools a run may choose as its remote exit, with `active_workers` — remote workers only; the standing local workers run passive stages and are never an exit |
-| `POST /workers/enrollment-tokens` | admin | `{kind: vps\|local, name, pool_id, ttl_mins, max_uses}` → for `vps`: `{token, install_command, expires_in}`; for `local`: the compose command |
-| `GET /workers/provision` | admin | `{enabled, count}` — whether a provisioner is configured and how many standing workers it runs |
-| `POST /workers/provision` | admin | `{count}` — scale the standing local workers |
+| `POST /workers/enrollment-tokens` | admin | `{kind: vps, name, pool_id, ttl_mins, max_uses}` → `{token, install_command, expires_in}`. `kind: local` is refused: the standing worker enrols itself and a run's fleet is built by the scheduler |
 | `POST /workers/{workerID}/{action}` | admin | `approve`, `drain`, `resume`, `quarantine` |
 | `DELETE /workers/{workerID}` | admin | a local worker's container is removed first |
 

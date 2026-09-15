@@ -38,7 +38,6 @@ func (s *Server) createEnrollmentToken(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		TTLMins int    `json:"ttl_mins"`
 		MaxUses int    `json:"max_uses"`
-		Count   int    `json:"count"` // local only: desired replica count
 	}
 	_ = readJSON(r, &in)
 
@@ -47,20 +46,12 @@ func (s *Server) createEnrollmentToken(w http.ResponseWriter, r *http.Request) {
 		kind = string(scanproto.KindVPS)
 	}
 
-	// --- local: no token to hand out; the bootstrap token is already shared
-	// with worker containers over the internal network. Just show the command.
+	// --- local: nothing to enrol by hand. The standing worker service enrols
+	// itself with the bootstrap token, and a run's own workers are built and
+	// enrolled by the scheduler for the life of that run.
 	if kind == string(scanproto.KindLocal) {
-		count := in.Count
-		if count < 1 {
-			count = 2
-		}
-		s.auditReq(r, "worker.scale_local", "", map[string]any{"count": count})
-		writeJSON(w, http.StatusCreated, map[string]any{
-			"kind":            kind,
-			"install_command": "docker compose up -d --scale worker=" + itoa(count),
-			"note": "Local workers self-enroll over the internal network and are approved " +
-				"automatically. They scan your external targets from your own egress address.",
-		})
+		writeErr(w, http.StatusBadRequest, "local workers are not enrolled by hand: the standing worker "+
+			"service enrols itself, and an active scan builds its own workers for the run")
 		return
 	}
 

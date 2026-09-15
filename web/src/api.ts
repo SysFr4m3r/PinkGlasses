@@ -397,10 +397,4 @@ export const api = {
   setWordlistDefault: (id: string, isDefault: boolean) =>
     req(`/wordlists/${id}`, { method: "PATCH", body: JSON.stringify({ is_default: isDefault }) }),
   deleteWordlist: (id: string) => req(`/wordlists/${id}`, { method: "DELETE" }),
-  provisionStatus: () =>
-    req<{ enabled: boolean; count?: number; reason?: string }>("/workers/provision"),
-  scaleLocal: (count: number) =>
-    req<{ target: number; created: number; removed: number }>("/workers/provision", {
-      method: "POST", body: JSON.stringify({ count }),
-    }),
 };

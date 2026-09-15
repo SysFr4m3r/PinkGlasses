@@ -175,9 +175,9 @@ docker compose ps                    # what is currently running
 docker compose logs -f api worker    # follow logs
 ```
 
-Local worker containers created from the UI are managed by the `provisioner`, not by
-compose, so `docker compose down` leaves them running. Scale them to 0 in
-**Workers → Add local worker** first, or remove them directly:
+A run's own workers and VPN gateway are created by the `provisioner`, not by compose,
+and are destroyed when the run ends. `docker compose down` while a run is going leaves
+them until the scheduler comes back and sweeps them; to remove them by hand:
 
 ```bash
 docker rm -f $(docker ps -aq --filter label=asm.managed=true)
@@ -185,35 +185,34 @@ docker rm -f $(docker ps -aq --filter label=asm.managed=true)
 
 ### Workers: local or external
 
-**Both kinds do the same job — scanning your external targets.** Internal (RFC1918)
-ranges are out of scope for this product entirely and are skipped for every worker.
-Kind decides only where the traffic comes from and how the worker enrols.
+Every worker is the same agent; what differs is where it runs and what it is for.
 
 | | Local | External (VPS) |
 |---|---|---|
-| What it scans | Your external targets | Your external targets |
-| Traffic leaves from | Your corporate IP | The provider's IP |
-| Setup | Free, already running | A box you rent and enrol |
-| Enrolment | Self-enrols, auto-approved | Installer + manual approval |
+| Where it runs | A container beside the control plane | A box you rent and enrol |
+| What it does | Passive stages on the standing worker; active stages on a run's own fleet behind a VPN | Active stages, as a run's chosen remote exit |
+| Traffic leaves from | Third-party APIs from your address (passive); the VPN's address (active) | The provider's IP |
+| How it appears | Automatically: the standing worker enrols itself, a run's fleet is built and destroyed with the run | Installer + manual approval under **Workers → Add VPS worker** |
 
-Local workers alone are a complete scanning system — the stack scans your perimeter as
-soon as it is up. Add VPS workers for **egress diversity** (not every packet leaving one
-corporate IP) and a **true outside-in view**: your own egress filtering and firewall
-policy quietly shape what a local worker sees, so a local worker can report a service as
-reachable when in fact only you can reach it.
+Nothing local is created by hand. The `worker` service in docker-compose is the standing
+worker: it runs the passive stages (subfinder, DNS brute force, resolution, enrichment)
+and never touches a target. When you start an active scan from local workers, the
+scheduler asks the `provisioner` for a VPN gateway and the number of workers you chose
+in the dialog; they scan through the tunnel and are removed when the run ends. The
+standing local pool is never offered as an exit, so no active scan can leave from this
+host's own address.
 
-**Add local workers** — click **Workers → Add local worker**, pick a count, apply. The
-`provisioner` service creates the containers; they self-enrol over the internal network
-and are auto-approved.
+The `provisioner` is an isolated sidecar — the **only** container with the Docker
+socket. The socket is root-equivalent on the host, so it is deliberately kept out of the
+`api`, which is internet-adjacent and holds your whole attack-surface map, and out of the
+`scheduler`, which merely asks for fleets. The provisioner speaks a fixed vocabulary
+(build, list and remove labelled containers) and cannot run arbitrary Docker commands.
+Without it, scanning from local workers is refused with that reason, and remote workers
+remain the way to scan.
 
-The button is served by an isolated `provisioner` sidecar — the **only** container with
-the Docker socket. The socket is root-equivalent on the host, so it is deliberately kept
-out of the `api`, which is internet-adjacent and holds your whole attack-surface map. The
-provisioner speaks a fixed vocabulary (list / scale labelled worker containers) and cannot
-run arbitrary Docker commands.
-
-Prefer not to mount the socket at all? Delete the `provisioner` service from
-`docker-compose.yml` — the UI then shows this command instead:
+If passive discovery ever queues behind a busy standing worker — many companies scanning
+at once, or very large brute-force lists — add capacity with compose; each extra replica
+enrols itself:
 
 ```bash
 docker compose up -d --scale worker=3
@@ -811,12 +810,3 @@ Known rough edges:
   from before the project was renamed, so existing `.env` files and volumes keep working.
   The compose volumes are pinned to their original `scan_tool_*` names for the same
   reason — renaming them would orphan the database.
-
-
-Do you need to set the number of local containers? No, not for a normal setup. Two different things share the word "workers":
-
-- The standing local workers (Workers → Add local worker, or --scale worker=N) now only run the passive stages: subfinder, DNS brute force, resolution, enrichment. They never touch a target. The default single container runs 8 tasks at once, which is plenty for one or a few companies. Adding more only helps when many companies scan simultaneously or you run very large brute-force wordlists, since each wordlist is its own task and spreads across workers.
-
-- The workers that do the active scanning are created per run. When you start a scan from local workers behind a VPN, the dialog's Workers field (1 to 8, default 2) is the count that matters, and those containers are destroyed when the run ends. Remote scanning uses whatever you enrolled in that pool.
-
-So the "Add local worker" control is optional capacity for passive discovery, not something a fresh install has to configure. The README's Workers section still presents scaling as a primary setup step, from before per-run fleets existed. I can rewrite that section to say the above if you want.
