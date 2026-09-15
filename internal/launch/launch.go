@@ -253,7 +253,9 @@ func (l *Launcher) checkExit(ctx context.Context, scopeID uuid.UUID, o Options) 
 		}
 		if pool.ActiveWorkers == 0 {
 			return nil, refuse(http.StatusConflict,
-				"pool %q has no active worker to run this scan; enrol one under Workers, or approve a pending one", pool.Name)
+				"pool %q has no active remote worker to run this scan. The standing local workers only "+
+					"run passive stages and are never an exit; enrol a VPS worker under Workers, or scan "+
+					"from local workers behind a VPN", pool.Name)
 		}
 		return &exitPlan{kind: "remote", poolID: pool.ID}, nil
 

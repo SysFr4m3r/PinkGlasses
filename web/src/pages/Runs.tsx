@@ -446,7 +446,7 @@ function LaunchModal({
               <div className="hint" style={{ marginTop: 2 }}>
                 {remotePools.length
                   ? "A pool of workers you enrolled — a VPS, say. The scan leaves from their addresses."
-                  : "No pool has an active worker. Enrol one under Workers → Add VPS worker."}
+                  : "No pool has an active remote worker. The standing local workers only run passive stages, so they are never an exit. Enrol one under Workers → Add VPS worker."}
               </div>
               {exit === "remote" && remotePools.length > 0 && (
                 <div className="row" style={{ marginTop: 8 }}>

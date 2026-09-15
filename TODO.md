@@ -717,3 +717,12 @@ comes up with an enrolled local worker; verified on empty volumes.
       all. Bake a pinned template revision into `deploy/Dockerfile.worker` and forward the
       override from the provisioner. Found 2026-09-06 while correcting the README, which
       had never listed the vulnerability stage.
+
+Found 2026-09-15: the standing `local` pool counted as a remote exit. `ListExitPools`
+and `GetExitPool` counted every active worker, and the bootstrap-enrolled local worker is
+one, so the launch dialog offered "Remote workers → local · 1 worker" and an active scan
+could leave from the control-plane host — the one thing the exit design forbids. Both
+queries now count only workers whose kind is not `local`; the launcher refuses such a
+pool with the reason, and the dialog greys the choice out with the same sentence.
+Verified: a hand-built request binding a standard scan to the local pool answers 409 and
+creates no run; the dialog disables Remote and keeps Local only where a VPN config exists.

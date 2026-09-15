@@ -203,7 +203,7 @@ Event kinds: `new_finding`, `finding_gone`, `finding_returned`, `new_port`,
 | Route | Role | Purpose |
 |---|---|---|
 | `GET /workers` | viewer | every worker: status, egress, load, tools, `run_scoped` for a run's own containers |
-| `GET /pools` | viewer | pools a run may choose as its remote exit, with `active_workers` |
+| `GET /pools` | viewer | pools a run may choose as its remote exit, with `active_workers` — remote workers only; the standing local workers run passive stages and are never an exit |
 | `POST /workers/enrollment-tokens` | admin | `{kind: vps\|local, name, pool_id, ttl_mins, max_uses}` → for `vps`: `{token, install_command, expires_in}`; for `local`: the compose command |
 | `GET /workers/provision` | admin | `{enabled, count}` — whether a provisioner is configured and how many standing workers it runs |
 | `POST /workers/provision` | admin | `{count}` — scale the standing local workers |

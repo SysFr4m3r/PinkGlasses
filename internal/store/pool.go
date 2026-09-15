@@ -37,10 +37,15 @@ func (s *Store) PassivePool(ctx context.Context) (uuid.UUID, error) {
 // ListExitPools returns the pools a run may choose as its remote exit: every
 // pool that is not one a run built for itself, with a live worker count so the
 // UI can grey out an empty one rather than let a run bind to it and stall.
+//
+// The count is of remote workers only. A worker of kind `local` is a standing
+// container on the control-plane host, there to run passive stages; letting an
+// active scan bind to its pool would send packets at the target from this
+// host's own address, which is exactly what the exit design exists to prevent.
 func (s *Store) ListExitPools(ctx context.Context) ([]WorkerPool, error) {
 	rows, err := s.Pool.Query(ctx, `
 		SELECT p.id, p.name, p.description, p.is_default, p.created_at,
-		       (SELECT count(*) FROM worker w WHERE w.pool_id = p.id AND w.status='active')
+		       (SELECT count(*) FROM worker w WHERE w.pool_id = p.id AND w.status='active' AND w.kind <> 'local')
 		FROM worker_pool p
 		WHERE NOT p.run_scoped
 		ORDER BY p.is_default DESC, p.name`)
@@ -65,7 +70,7 @@ func (s *Store) GetExitPool(ctx context.Context, id uuid.UUID) (WorkerPool, bool
 	var p WorkerPool
 	err := s.Pool.QueryRow(ctx, `
 		SELECT p.id, p.name, p.description, p.is_default, p.created_at,
-		       (SELECT count(*) FROM worker w WHERE w.pool_id = p.id AND w.status='active')
+		       (SELECT count(*) FROM worker w WHERE w.pool_id = p.id AND w.status='active' AND w.kind <> 'local')
 		FROM worker_pool p WHERE p.id=$1 AND NOT p.run_scoped`, id).
 		Scan(&p.ID, &p.Name, &p.Description, &p.IsDefault, &p.CreatedAt, &p.ActiveWorkers)
 	if err != nil {

@@ -765,7 +765,7 @@ paths:
   /api/v1/pools:
     get:
       operationId: getPools
-      summary: "pools a run may choose as its remote exit, with active_workers"
+      summary: "pools a run may choose as its remote exit, with active_workers — remote workers only; the standing local workers run passive stages and are never an exit"
       x-required-role: viewer
       security:
         - session: []
