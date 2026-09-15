@@ -10,8 +10,8 @@ import { api } from "../api";
  * be a bearer token for that object embedded in the page.
  */
 export function ScreenshotModal({
-  serviceID, title, onClose,
-}: { serviceID: string; title: string; onClose: () => void }) {
+  serviceID, host, title, onClose,
+}: { serviceID: string; host?: string | null; title: string; onClose: () => void }) {
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
 
   return (
@@ -33,7 +33,7 @@ export function ScreenshotModal({
             <div className="muted" style={{ padding: 12 }}>Loading screenshot…</div>
           )}
           <img
-            src={api.screenshotURL(serviceID)}
+            src={api.screenshotURL(serviceID, host)}
             alt={`Screenshot of ${title}`}
             onLoad={() => setState("ok")}
             onError={() => setState("error")}
@@ -55,8 +55,8 @@ export function ScreenshotModal({
  * in the dialog should trigger that.
  */
 export function ScreenshotButton({
-  serviceID, title, label = "Screenshot",
-}: { serviceID: string; title: string; label?: string }) {
+  serviceID, host, title, label = "Screenshot",
+}: { serviceID: string; host?: string | null; title: string; label?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <span onClick={(e) => e.stopPropagation()}>
@@ -68,7 +68,7 @@ export function ScreenshotButton({
         ▣ {label}
       </button>
       {open && (
-        <ScreenshotModal serviceID={serviceID} title={title} onClose={() => setOpen(false)} />
+        <ScreenshotModal serviceID={serviceID} host={host} title={title} onClose={() => setOpen(false)} />
       )}
     </span>
   );

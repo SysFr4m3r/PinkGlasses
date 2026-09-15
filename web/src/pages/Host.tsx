@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { api, HostService } from "../api";
+import { api, HostService, HostVhost } from "../api";
 import { Spinner } from "../components/ui";
 import { ScreenshotButton } from "../components/Screenshot";
 import { DotStrip, PresenceBadge } from "../components/DotStrip";
@@ -259,6 +259,18 @@ function ServiceCard({ sv }: { sv: HostService }) {
         </details>
       )}
 
+      {(sv.vhosts?.length ?? 0) > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Sites on this port{" "}
+            <span style={{ fontSize: 11 }}>
+              (each name asked for by name — a shared address answers differently per site)
+            </span>
+          </div>
+          {sv.vhosts!.map((v) => <VhostRow key={v.host} sv={sv} v={v} />)}
+        </div>
+      )}
+
       {sv.tls && (
         <details style={{ marginTop: 8 }}>
           <summary className="muted" style={{ cursor: "pointer", fontSize: 12 }}>TLS</summary>
@@ -266,6 +278,62 @@ function ServiceCard({ sv }: { sv: HostService }) {
             margin: "6px 0 0", padding: 8, overflowX: "auto", fontSize: 12,
             background: "var(--bg-alt, rgba(127,127,127,.08))", borderRadius: 6,
           }}>{JSON.stringify(sv.tls, null, 2)}</pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+/** One virtual host's latest observation on a port: status, title, cookies, headers, screenshot. */
+function VhostRow({ sv, v }: { sv: HostService; v: HostVhost }) {
+  const http = v.http ?? null;
+  const headers: Record<string, string> = {};
+  const raw: unknown = http?.headers;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [k, val] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof val === "string") headers[k] = val;
+    }
+  }
+  const headerKeys = Object.keys(headers).sort();
+  return (
+    <div className="vhost">
+      <div className="row" style={{ margin: 0, gap: 8, alignItems: "baseline" }}>
+        <span className="mono">{v.host}</span>
+        {http?.status !== undefined && <span className="pill">HTTP {http.status}</span>}
+        {http?.title && <span>{http.title}</span>}
+        {v.observed_at && (
+          <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>
+            observed {new Date(v.observed_at).toLocaleString()}
+          </span>
+        )}
+        {v.has_screenshot && (
+          <ScreenshotButton serviceID={sv.id} host={v.host} title={v.host} />
+        )}
+      </div>
+      {(http?.cookies?.length ?? 0) > 0 && (
+        <div className="row" style={{ marginTop: 4, gap: 6 }}>
+          {http!.cookies!.map((c) => (
+            <span key={c} className="pill mono" title={`cookie:${c}`}>{c}</span>
+          ))}
+        </div>
+      )}
+      {headerKeys.length > 0 && (
+        <details style={{ marginTop: 4 }}>
+          <summary className="muted" style={{ cursor: "pointer", fontSize: 12 }}>
+            {headerKeys.length} response header{headerKeys.length === 1 ? "" : "s"}
+          </summary>
+          <div className="table-wrap" style={{ marginTop: 6 }}>
+            <table>
+              <tbody>
+                {headerKeys.map((k) => (
+                  <tr key={k}>
+                    <td className="muted mono" style={{ width: 180 }}>{k}</td>
+                    <td className="mono wrap">{headers[k]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </details>
       )}
     </div>

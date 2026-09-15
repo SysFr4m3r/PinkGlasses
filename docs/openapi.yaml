@@ -558,7 +558,7 @@ paths:
   /api/v1/services/{serviceID}/screenshot:
     get:
       operationId: getServicesByServiceIDScreenshot
-      summary: "image/png, the most recent capture"
+      summary: "image/png, the most recent capture; ?host= picks one virtual host's capture, otherwise the address-level one with any host's as fallback"
       x-required-role: viewer
       parameters:
         - {name: serviceID, in: path, required: true, schema: {type: string}}

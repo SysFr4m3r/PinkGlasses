@@ -68,6 +68,18 @@ implementations when a binary is absent, so it works before you install anything
 | Directory brute | katana, urlfinder → gobuster/ffuf | built-in common-path probe |
 | Vulnerabilities | nuclei, default templates, severity low and up | skipped |
 
+**Web stages ask for each site by name.** One address often serves many names, and a
+server answers a request that carries no name with its default block — for nginx that
+is typically a bare 403. So once the probe has found a live port, the planner makes one
+target per name that resolves to that address, each carrying the name as SNI and Host
+header, and tech detection, screenshots, directory search and the vulnerability check run
+per name. What each name serves is stored under that name: the Hosts table shows the
+screenshot of the row's own name, and a host page lists *Sites on this port* with each
+name's status, title, cookies and headers. An address nothing resolves to is probed as
+itself. *Virtual hosts per address* under Customize scanning caps the fan-out (default
+20, shortest names first) so a wildcard-ish address with hundreds of names does not
+multiply the loudest stages by hundreds.
+
 **Every live web endpoint gets a nuclei pass.** Once the service probe has found what
 answers HTTP on a host, `vuln_check` runs nuclei against each endpoint with its default
 template set, at severity *low* and above by default — *Minimum severity* under

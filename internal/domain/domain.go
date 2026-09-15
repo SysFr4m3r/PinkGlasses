@@ -273,7 +273,10 @@ func (f *Finding) DerivePresence() {
 // ServiceObs is a per-run snapshot of a service, assembled by ingest before it
 // is written to service_observation.
 type ServiceObs struct {
-	At            time.Time      `json:"at"`
+	At time.Time `json:"at"`
+	// Host is the virtual host the observation is of; "" is the address itself
+	// (banner, version, an address-only probe).
+	Host          string         `json:"host,omitempty"`
 	Banner        string         `json:"banner,omitempty"`
 	Product       string         `json:"product,omitempty"`
 	Version       string         `json:"version,omitempty"`

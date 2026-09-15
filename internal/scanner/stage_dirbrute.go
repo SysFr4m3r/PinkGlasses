@@ -29,6 +29,7 @@ func (s *Scanner) dirBrute(ctx context.Context, job scanproto.Job) ([]scanproto.
 		return nil, nil
 	}
 	ip, port := targetIPPort(job)
+	host := targetHost(job)
 
 	seen := map[string]int{}
 	add := func(path string, status int) {
@@ -157,7 +158,7 @@ func (s *Scanner) dirBrute(ctx context.Context, job scanproto.Job) ([]scanproto.
 
 	// Crawled/passive paths arrive with status 0. Probe them (bounded) so every
 	// reported path carries a real HTTP status, and drop the ones that 404.
-	obs := s.probePaths(ctx, base, ip, port, seen, pr, proxyFor(job, pr))
+	obs := s.probePaths(ctx, base, ip, host, port, seen, pr, proxyFor(job, pr))
 
 	byStatus := map[int]int{}
 	for _, o := range obs {
@@ -207,7 +208,7 @@ func cleanPath(path string) string {
 // probePaths GETs each candidate path (capped, modest concurrency) and returns
 // observations only for paths that exist. gobuster/ffuf hits already carry a
 // status and are trusted as-is; everything else is verified here.
-func (s *Scanner) probePaths(ctx context.Context, base, ip string, port int, seen map[string]int,
+func (s *Scanner) probePaths(ctx context.Context, base, ip, host string, port int, seen map[string]int,
 	pr params, px string) []scanproto.Observation {
 	type job struct {
 		path   string
@@ -232,7 +233,7 @@ func (s *Scanner) probePaths(ctx context.Context, base, ip string, port int, see
 
 	for _, j := range todo {
 		if j.status != 0 { // already verified by gobuster/ffuf
-			obs = append(obs, scanproto.Observation{Type: scanproto.ObsPath, IP: ip, Port: port, Path: j.path, Status: j.status})
+			obs = append(obs, scanproto.Observation{Type: scanproto.ObsPath, IP: ip, Port: port, Host: host, Path: j.path, Status: j.status})
 			continue
 		}
 		wg.Add(1)
@@ -251,7 +252,7 @@ func (s *Scanner) probePaths(ctx context.Context, base, ip string, port int, see
 				return
 			}
 			mu.Lock()
-			obs = append(obs, scanproto.Observation{Type: scanproto.ObsPath, IP: ip, Port: port, Path: path, Status: resp.StatusCode})
+			obs = append(obs, scanproto.Observation{Type: scanproto.ObsPath, IP: ip, Port: port, Host: host, Path: path, Status: resp.StatusCode})
 			mu.Unlock()
 		}(j.path)
 	}

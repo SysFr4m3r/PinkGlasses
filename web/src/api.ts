@@ -128,6 +128,8 @@ interface RunActivityWire {
 }
 export interface HostRow {
   screenshot_service_id?: string | null;
+  /** The virtual host that capture is of; empty or absent means the bare address. */
+  screenshot_host?: string | null;
   domain_id?: string | null; name: string;
   ip_id?: string | null; addr?: string | null; ptr?: string | null;
   asn?: number | null; as_org?: string | null; as_range?: string | null;
@@ -162,6 +164,11 @@ export interface HostName {
   also_resolved_to?: string[] | null;
 }
 export interface HostTech { name: string; version?: string | null; cpe?: string | null }
+export interface HostVhost {
+  host: string; observed_at?: string | null; has_screenshot: boolean;
+  http?: { title?: string; status?: number; favicon?: string;
+           headers?: Record<string, string>; cookies?: string[] } | null;
+}
 /** An open port plus the most recent thing observed answering on it. */
 export interface HostService extends Service {
   has_screenshot?: boolean;
@@ -172,6 +179,8 @@ export interface HostService extends Service {
            cookies?: string[] } | null;
   tls?: Record<string, any> | null;
   observed_at?: string | null;
+  /** What each name on this port serves — a shared address answers differently per name. */
+  vhosts?: HostVhost[] | null;
   technologies: HostTech[];
   /** One entry per completed run that port-scanned this address; observed = found open. */
   history?: FindingRun[] | null;
@@ -299,7 +308,8 @@ export const api = {
   hosts: (s: string) => req<Host[] | null>(`/scopes/${s}/hosts`).then((x) => x ?? []),
   // Served by the API, not object storage: the CSP allows images from 'self'
   // only, and a presigned URL in the page would be a bearer token for it.
-  screenshotURL: (serviceID: string) => `/api/v1/services/${serviceID}/screenshot`,
+  screenshotURL: (serviceID: string, host?: string | null) =>
+    `/api/v1/services/${serviceID}/screenshot${host ? `?host=${encodeURIComponent(host)}` : ""}`,
   host: (ip: string) =>
     req<HostDetail>(`/hosts/${ip}`).then((h) => ({
       ...h,

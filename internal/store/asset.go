@@ -139,9 +139,9 @@ func (s *Store) UpsertServiceObservation(ctx context.Context, serviceID, runID u
 	httpJSON := jsonOrNil(o.HTTP)
 	tlsJSON := jsonOrNil(o.TLS)
 	_, err := s.Pool.Exec(ctx, `
-		INSERT INTO service_observation (service_id, run_id, worker_id, observed_at, banner, product, version, http, tls, screenshot_key, raw_key)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-		ON CONFLICT (service_id, run_id) DO UPDATE SET
+		INSERT INTO service_observation (service_id, run_id, worker_id, observed_at, banner, product, version, http, tls, screenshot_key, raw_key, host)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		ON CONFLICT (service_id, run_id, host) DO UPDATE SET
 		  -- Several stages write this one row: the port scan brings the banner
 		  -- and version, tech detection the HTTP detail, the screenshot stage
 		  -- its key. Each sends empty values for the fields it knows nothing
@@ -189,8 +189,38 @@ func (s *Store) UpsertServiceObservation(ctx context.Context, serviceID, runID u
 		  tls=COALESCE(NULLIF(EXCLUDED.tls,'null'::jsonb), service_observation.tls),
 		  screenshot_key=COALESCE(NULLIF(EXCLUDED.screenshot_key,''), service_observation.screenshot_key),
 		  raw_key=COALESCE(NULLIF(EXCLUDED.raw_key,''), service_observation.raw_key)`,
-		serviceID, runID, workerID, o.At, o.Banner, o.Product, o.Version, httpJSON, tlsJSON, o.ScreenshotKey, o.RawKey)
+		serviceID, runID, workerID, o.At, o.Banner, o.Product, o.Version, httpJSON, tlsJSON, o.ScreenshotKey, o.RawKey, o.Host)
 	return err
+}
+
+// NamesResolvingTo returns the names in a scope that currently resolve to an
+// address — the virtual hosts a web stage must ask for by name. Wildcard
+// answers are left out: a name that only resolved because the apex answers
+// for anything is not a site. Shortest names first, so the apex and its
+// plainest labels come before deep ones when a cap applies.
+func (s *Store) NamesResolvingTo(ctx context.Context, scopeID uuid.UUID, ip string, limit int) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT DISTINCT d.name, length(d.name)
+		FROM domain d
+		JOIN domain_ip di ON di.domain_id = d.id
+		JOIN ip_address a ON a.id = di.ip_id
+		WHERE d.scope_id = $1 AND a.addr = $2::inet AND COALESCE(di.via,'') <> 'wildcard'
+		ORDER BY length(d.name), d.name
+		LIMIT $3`, scopeID, ip, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		var l int
+		if err := rows.Scan(&n, &l); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
 }
 
 // jsonOrNil marshals a document, returning nil — a SQL NULL — when there is
@@ -345,6 +375,8 @@ type HostRow struct {
 	// recent screenshot, so the list can offer to show one without asking for
 	// each row's services separately.
 	ScreenshotServiceID *uuid.UUID `json:"screenshot_service_id,omitempty"`
+	// ScreenshotHost is the virtual host that capture is of; "" is the address.
+	ScreenshotHost *string `json:"screenshot_host,omitempty"`
 }
 
 // HostRowsResult carries the rows plus how many names were filtered out, so the
@@ -380,16 +412,19 @@ func (s *Store) HostRows(ctx context.Context, scopeID uuid.UUID, q string, limit
 		       ip.as_range, ip.country, ip.cloud, COALESCE(ip.is_shared,false),
 		       COALESCE((SELECT a.is_wildcard FROM domain a WHERE a.scope_id = d.scope_id AND a.name = d.apex), false),
 		       COALESCE((SELECT count(*) FROM service sv WHERE sv.ip_id = ip.id), 0),
-		       COALESCE(di.first_seen, d.first_seen), COALESCE(di.last_seen, d.last_seen), shot.service_id
+		       COALESCE(di.first_seen, d.first_seen), COALESCE(di.last_seen, d.last_seen), shot.service_id, shot.host
 		FROM domain d
 		LEFT JOIN domain_ip di ON di.domain_id = d.id
 		LEFT JOIN ip_address ip ON ip.id = di.ip_id
+		-- The screenshot of this name, or failing that of the bare address;
+		-- never another name's site on the same address.
 		LEFT JOIN LATERAL (
-		  SELECT o.service_id
+		  SELECT o.service_id, o.host
 		  FROM service_observation o
 		  JOIN service sv ON sv.id = o.service_id
 		  WHERE sv.ip_id = ip.id AND COALESCE(o.screenshot_key,'') <> ''
-		  ORDER BY o.observed_at DESC LIMIT 1
+		    AND (o.host = d.name OR o.host = '')
+		  ORDER BY (o.host = d.name) DESC, o.observed_at DESC LIMIT 1
 		) shot ON true
 		WHERE d.scope_id = $1
 		  AND ($4 OR ip.id IS NOT NULL)
@@ -406,7 +441,7 @@ func (s *Store) HostRows(ctx context.Context, scopeID uuid.UUID, q string, limit
 		var h HostRow
 		if err := rows.Scan(&h.DomainID, &h.Name, &h.IPID, &h.Addr, &h.PTR, &h.ASN,
 			&h.ASOrg, &h.ASRange, &h.Country, &h.Cloud, &h.IsShared, &h.ApexWildcard, &h.Services,
-			&h.FirstSeen, &h.LastSeen, &h.ScreenshotServiceID); err != nil {
+			&h.FirstSeen, &h.LastSeen, &h.ScreenshotServiceID, &h.ScreenshotHost); err != nil {
 			return res, err
 		}
 		res.Rows = append(res.Rows, h)
@@ -416,13 +451,15 @@ func (s *Store) HostRows(ctx context.Context, scopeID uuid.UUID, q string, limit
 
 // LatestScreenshotKey returns the object key of the most recent screenshot of a
 // service, or "" when none was ever captured. Callers address screenshots by
-// service, never by key, so the key never leaves the server.
-func (s *Store) LatestScreenshotKey(ctx context.Context, serviceID uuid.UUID) (string, error) {
+// service, never by key, so the key never leaves the server. A host narrows it
+// to that virtual host's capture; without one the address-level capture is
+// preferred and any host's is the fallback.
+func (s *Store) LatestScreenshotKey(ctx context.Context, serviceID uuid.UUID, host string) (string, error) {
 	var key string
 	err := s.Pool.QueryRow(ctx, `
 		SELECT screenshot_key FROM service_observation
-		WHERE service_id=$1 AND COALESCE(screenshot_key,'') <> ''
-		ORDER BY observed_at DESC LIMIT 1`, serviceID).Scan(&key)
+		WHERE service_id=$1 AND COALESCE(screenshot_key,'') <> '' AND ($2 = '' OR host = $2)
+		ORDER BY (host = $2) DESC, observed_at DESC LIMIT 1`, serviceID, host).Scan(&key)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
@@ -469,10 +506,21 @@ type HostService struct {
 	// The key itself stays server-side: the image is fetched by service id,
 	// so a caller cannot ask the API for an arbitrary object.
 	HasScreenshot bool `json:"has_screenshot"`
+	// Vhosts is what each name on this port serves, one entry per virtual
+	// host observed: a shared address answers differently per name.
+	Vhosts []HostVhost `json:"vhosts"`
 	// History has one entry per completed run that port-scanned this address:
 	// observed is whether that run found the port open. A port that closed and
 	// reopened shows the gap, which first_seen/last_seen alone cannot.
 	History []domain.FindingRun `json:"history"`
+}
+
+// HostVhost is one virtual host's latest web observation on a service.
+type HostVhost struct {
+	Host          string          `json:"host"`
+	HTTP          json.RawMessage `json:"http,omitempty"`
+	ObservedAt    *time.Time      `json:"observed_at,omitempty"`
+	HasScreenshot bool            `json:"has_screenshot"`
 }
 
 // HostDetailResult is everything known about one address.
@@ -554,15 +602,28 @@ func (s *Store) HostDetail(ctx context.Context, ipID uuid.UUID) (HostDetailResul
 		       o.banner, o.product, o.version, o.http, o.tls, o.observed_at,
 		       EXISTS (SELECT 1 FROM service_observation so
 		                WHERE so.service_id = sv.id AND COALESCE(so.screenshot_key,'') <> ''),
-		       COALESCE(h.hist, '[]'::jsonb)
+		       COALESCE(h.hist, '[]'::jsonb),
+		       COALESCE(vh.list, '[]'::jsonb)
 		FROM service sv
 		JOIN ip_address ip ON ip.id = sv.ip_id
+		-- The address-level observation (banner, version, an address-only
+		-- probe) is preferred for the card itself; per-name detail is below.
 		LEFT JOIN LATERAL (
 		  SELECT banner, product, version, http, tls, observed_at
 		  FROM service_observation
 		  WHERE service_id = sv.id
-		  ORDER BY observed_at DESC LIMIT 1
+		  ORDER BY (host <> ''), observed_at DESC LIMIT 1
 		) o ON true
+		-- One entry per virtual host: its latest observation on this port.
+		LEFT JOIN LATERAL (
+		  SELECT jsonb_agg(v ORDER BY v->>'host') AS list FROM (
+		    SELECT DISTINCT ON (host) jsonb_build_object(
+		      'host', host, 'http', http, 'observed_at', observed_at,
+		      'has_screenshot', COALESCE(screenshot_key,'') <> '') AS v
+		    FROM service_observation
+		    WHERE service_id = sv.id AND host <> ''
+		    ORDER BY host, observed_at DESC) x
+		) vh ON true
 		-- One entry per completed run that port-scanned this address. Port scans
 		-- are batched, so the address is in target.ips; a single-address task
 		-- carries target.ip.
@@ -600,15 +661,17 @@ func (s *Store) HostDetail(ctx context.Context, ipID uuid.UUID) (HostDetailResul
 	byService := map[uuid.UUID]int{}
 	for svcRows.Next() {
 		var sv HostService
-		var hist []byte
+		var hist, vh []byte
 		sv.Technologies, sv.History = []HostTech{}, []domain.FindingRun{}
 		if err := svcRows.Scan(&sv.ID, &sv.IPID, &sv.Port, &sv.Proto, &sv.LastState,
 			&sv.FirstSeen, &sv.LastSeen,
 			&sv.Banner, &sv.Product, &sv.Version, &sv.HTTP, &sv.TLS, &sv.ObservedAt,
-			&sv.HasScreenshot, &hist); err != nil {
+			&sv.HasScreenshot, &hist, &vh); err != nil {
 			return res, err
 		}
 		_ = json.Unmarshal(hist, &sv.History)
+		sv.Vhosts = []HostVhost{}
+		_ = json.Unmarshal(vh, &sv.Vhosts)
 		byService[sv.ID] = len(res.Services)
 		res.Services = append(res.Services, sv)
 	}

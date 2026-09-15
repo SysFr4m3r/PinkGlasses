@@ -726,3 +726,13 @@ queries now count only workers whose kind is not `local`; the launcher refuses s
 pool with the reason, and the dialog greys the choice out with the same sentence.
 Verified: a hand-built request binding a standard scan to the local pool answers 409 and
 creates no run; the dialog disables Remote and keeps Local only where a VPN config exists.
+
+Found 2026-09-15 on lanet.ua: a screenshot of `telebot.lanet.ua` showed nginx's bare 403
+while the browser showed the site's own 404. Every web stage was addressed by `ip:port`
+(`urlFor` in ingest built the live URL from the address), so the request carried no SNI
+or Host header and each of the 8 shared addresses in that company was seen as its default
+server block — for every name on it. Fixed by making the web stages per virtual host end
+to end (migration 00029, `web_vhosts_per_address`, `?host=` on the screenshot endpoint).
+Follow-up worth doing: the service probe itself still asks by address, so a port that
+only answers with SNI (a strict TLS front) is never seen as live and gets no per-name
+tasks at all; probing by the first resolving name as well would close that.

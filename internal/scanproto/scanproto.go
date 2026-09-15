@@ -171,6 +171,10 @@ type Target struct {
 	CIDR string   `json:"cidr,omitempty"`
 	Port int      `json:"port,omitempty"`
 	URL  string   `json:"url,omitempty"`
+	// Host is the virtual host a web target is for: the name the request
+	// carries as SNI and Host header. The URL is built from it; IP and Port say
+	// which service the results belong to. Empty for an address-only target.
+	Host string `json:"host,omitempty"`
 }
 
 // Params are stage-specific knobs.
@@ -276,8 +280,12 @@ type Observation struct {
 	Source string `json:"source,omitempty"`
 
 	// ip / service
-	IP    string `json:"ip,omitempty"`
-	Port  int    `json:"port,omitempty"`
+	IP   string `json:"ip,omitempty"`
+	Port int    `json:"port,omitempty"`
+	// Host is the virtual host a web observation was made against, copied
+	// from the target. The same port answers differently per name, so what a
+	// name serves is recorded under that name rather than merged per address.
+	Host  string `json:"host,omitempty"`
 	Proto string `json:"proto,omitempty"`
 	State string `json:"state,omitempty"`
 

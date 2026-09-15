@@ -440,11 +440,19 @@ func (p *Planner) maybePostProbe(ctx context.Context, run domain.ScanRun) error 
 	// so its switch is honoured at planning time: turning it off should mean no
 	// task exists, not a task that leases a worker and returns nothing.
 	runVuln := true
+	maxVhosts := defaultVhostsPerAddress
 	if params, err := p.st.GetRunParams(ctx, run.ID); err == nil {
 		if v, ok := params["nuclei_enabled"]; ok && v == "false" {
 			runVuln = false
 		}
+		if v, ok := params["web_vhosts_per_address"]; ok {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				maxVhosts = n
+			}
+		}
 	}
+	// Names per address are looked up once per run, not once per URL.
+	namesFor := map[string][]string{}
 
 	rt, rtErr := p.routingFor(ctx, run)
 	if rtErr != nil {
@@ -462,14 +470,25 @@ func (p *Planner) maybePostProbe(ctx context.Context, run domain.ScanRun) error 
 			// planner already knew — and anything it gets wrong is a whole
 			// stage's results rejected at ingest.
 			ip, port := ipPortFromURL(u)
-			tgt := scanproto.Target{URL: u, IP: ip, Port: port}
-			specs = append(specs,
-				spec(scanproto.StageTechDetect, tgt, 300, origin0(origins)),
-				spec(scanproto.StageScreenshot, tgt, 310, origin0(origins), string(scanproto.CapBrowser)),
-				spec(scanproto.StageDirBrute, tgt, 320, origin0(origins)),
-			)
-			if runVuln {
-				specs = append(specs, spec(scanproto.StageVulnCheck, tgt, 330, origin0(origins)))
+			names, seen := namesFor[ip]
+			if !seen {
+				names, _ = p.st.NamesResolvingTo(ctx, run.ScopeID, ip, maxVhosts+1)
+				namesFor[ip] = names
+			}
+			targets, dropped := webTargets(u, ip, port, names, maxVhosts)
+			if dropped > 0 {
+				slog.Warn("more names on one address than the run's virtual-host cap; the rest are not probed by name",
+					"run", run.ID, "address", ip, "port", port, "cap", maxVhosts, "dropped", dropped)
+			}
+			for _, tgt := range targets {
+				specs = append(specs,
+					spec(scanproto.StageTechDetect, tgt, 300, origin0(origins)),
+					spec(scanproto.StageScreenshot, tgt, 310, origin0(origins), string(scanproto.CapBrowser)),
+					spec(scanproto.StageDirBrute, tgt, 320, origin0(origins)),
+				)
+				if runVuln {
+					specs = append(specs, spec(scanproto.StageVulnCheck, tgt, 330, origin0(origins)))
+				}
 			}
 		}
 	}
@@ -482,6 +501,39 @@ func (p *Planner) maybePostProbe(ctx context.Context, run domain.ScanRun) error 
 
 // ipPortFromURL splits a service URL into its address and port, defaulting to
 // the port implied by the scheme.
+// defaultVhostsPerAddress bounds the per-name fan-out of the web stages when
+// the run does not say otherwise (scan parameter web_vhosts_per_address).
+const defaultVhostsPerAddress = 20
+
+// webTargets turns one live ip:port into the targets the web stages run
+// against: one per name that resolves to the address, each carrying the name
+// so the request has SNI and a Host header and the site answers rather than
+// the server's default block. An address nothing resolves to is probed as
+// itself. Names beyond the cap are dropped and counted.
+func webTargets(liveURL, ip string, port int, names []string, maxNames int) ([]scanproto.Target, int) {
+	if len(names) == 0 {
+		return []scanproto.Target{{URL: liveURL, IP: ip, Port: port}}, 0
+	}
+	scheme := "http"
+	if u, err := url.Parse(liveURL); err == nil && u.Scheme != "" {
+		scheme = u.Scheme
+	}
+	dropped := 0
+	if maxNames > 0 && len(names) > maxNames {
+		dropped = len(names) - maxNames
+		names = names[:maxNames]
+	}
+	out := make([]scanproto.Target, 0, len(names))
+	for _, n := range names {
+		hostPort := n
+		if !(scheme == "https" && port == 443) && !(scheme == "http" && port == 80) {
+			hostPort = n + ":" + strconv.Itoa(port)
+		}
+		out = append(out, scanproto.Target{URL: scheme + "://" + hostPort, Host: n, IP: ip, Port: port})
+	}
+	return out, dropped
+}
+
 func ipPortFromURL(raw string) (string, int) {
 	u, err := url.Parse(raw)
 	if err != nil {

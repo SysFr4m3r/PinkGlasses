@@ -30,7 +30,9 @@ func (s *Server) serviceScreenshot(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad service id")
 		return
 	}
-	key, err := s.st.LatestScreenshotKey(r.Context(), serviceID)
+	// ?host= picks one virtual host's capture; without it the address-level
+	// capture is preferred and any host's is the fallback.
+	key, err := s.st.LatestScreenshotKey(r.Context(), serviceID, r.URL.Query().Get("host"))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

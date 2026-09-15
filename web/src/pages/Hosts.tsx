@@ -140,6 +140,7 @@ export default function Hosts({ scopeID }: { scopeID: string }) {
                     {r.screenshot_service_id && (
                       <ScreenshotButton
                         serviceID={r.screenshot_service_id}
+                        host={r.screenshot_host}
                         title={r.name}
                         label="Screenshot"
                       />

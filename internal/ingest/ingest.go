@@ -158,6 +158,7 @@ func (in *Ingestor) Process(ctx context.Context, runID uuid.UUID, workerID *uuid
 				return sum, err
 			}
 			so := domainObs(now)
+			so.Host = norm(o.Host)
 			so.Product = o.Product
 			so.Version = o.Version
 			// Only fields with a value. The store merges documents with jsonb
@@ -216,6 +217,7 @@ func (in *Ingestor) Process(ctx context.Context, runID uuid.UUID, workerID *uuid
 				return sum, err
 			}
 			so := domainObs(now)
+			so.Host = norm(o.Host)
 			so.ScreenshotKey = o.ScreenshotKey
 			if err := in.st.UpsertServiceObservation(ctx, svcID, runID, workerID, so); err != nil {
 				return sum, err
@@ -225,8 +227,14 @@ func (in *Ingestor) Process(ctx context.Context, runID uuid.UUID, workerID *uuid
 			// content-discovery hit; surfaced as an informational finding on the service
 			svcID, err := in.serviceID(ctx, scopeID, o.IP, o.Port, "tcp", "open", now)
 			if err == nil {
+				// The name is part of the finding: /admin on one virtual host is
+				// not /admin on another that shares the address.
+				title := "Discovered path: " + o.Path
+				if h := norm(o.Host); h != "" {
+					title += " on " + h
+				}
 				in.finding(ctx, runID, scopeID, svcID, "service", "content_discovery", "info",
-					"Discovered path: "+o.Path, map[string]any{"path": o.Path, "status": o.Status}, now)
+					title, map[string]any{"path": o.Path, "status": o.Status, "host": norm(o.Host)}, now)
 			}
 
 		case scanproto.ObsFinding:
@@ -234,8 +242,12 @@ func (in *Ingestor) Process(ctx context.Context, runID uuid.UUID, workerID *uuid
 			if o.IP != "" && o.Port != 0 {
 				assetID, _ = in.serviceID(ctx, scopeID, o.IP, o.Port, "tcp", "open", now)
 			}
+			title := o.FindingTitle
+			if h := norm(o.Host); h != "" {
+				title += " on " + h
+			}
 			in.finding(ctx, runID, scopeID, assetID, "service", o.FindingKind, sev(o.FindingSeverity),
-				o.FindingTitle, map[string]any{"banner": o.Banner}, now)
+				title, map[string]any{"banner": o.Banner, "host": norm(o.Host)}, now)
 		}
 	}
 	if skipped > 0 {

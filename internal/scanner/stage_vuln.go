@@ -18,6 +18,7 @@ func (s *Scanner) vulnCheck(ctx context.Context, job scanproto.Job) ([]scanproto
 		return nil, nil
 	}
 	ip, port := targetIPPort(job)
+	host := targetHost(job)
 
 	// Tools.md: nuclei -l urls   (default templates)
 	//           nuclei -l urls -t <dir>   (custom template set)
@@ -67,6 +68,7 @@ func (s *Scanner) vulnCheck(ctx context.Context, job scanproto.Job) ([]scanproto
 			Type:            scanproto.ObsFinding,
 			IP:              ip,
 			Port:            port,
+			Host:            host,
 			FindingKind:     "nuclei:" + id,
 			FindingSeverity: strings.ToLower(severity),
 			FindingTitle:    name,

@@ -174,6 +174,9 @@ var Specs = []Spec{
 		Help: "Route web probing through a proxy. One per line or comma-separated; a task picks one, so a list spreads a scan across several egress addresses. http://, socks4:// and socks5:// are accepted, with optional user:pass@ credentials. Empty means direct."},
 	{Key: "httpx_follow_redirects", Tool: "httpx", Label: "Follow redirects", Kind: KindBool,
 		Default: "true", Help: "Follow 3xx responses to the final destination. Turn off to record the redirect itself."},
+	{Key: "web_vhosts_per_address", Tool: "httpx", Label: "Virtual hosts per address", Kind: KindInt,
+		Min: 1, Max: 200, Default: "20",
+		Help: "Web stages ask each live port for every name that resolves to its address, one request set per name, so a shared address is seen as its sites rather than its default server block. This caps how many names per address; the shortest names come first."},
 
 	// --- directory search ---
 	{Key: "dir_wordlist", Tool: "gobuster", Label: "Wordlist", Kind: KindWordlist,

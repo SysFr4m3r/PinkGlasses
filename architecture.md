@@ -161,6 +161,17 @@ same choices a run does — preset, parameters, wordlists, exit — because both
 made in one dialog; `every_hours = 0` is a one-off that disables itself once its
 run has started (00027).
 
+**Web stages are per virtual host.** `maybePostProbe` turns each live `ip:port` into
+one target per name resolving to the address (`NamesResolvingTo`, wildcard answers
+excluded, shortest names first, capped by `web_vhosts_per_address`), with `Target.Host`
+set so the worker's request carries SNI and a Host header. The worker stamps
+`Observation.Host` on everything a web stage reports, and `service_observation` is keyed
+`(service_id, run_id, host)` — `host = ''` is the address itself (nmap banner, an
+address-only probe). Readers prefer the address-level row for a service's banner and
+version and list the per-name rows as its virtual hosts; the screenshot endpoint takes
+`?host=`. Path and nuclei findings carry the name in their title, since `/admin` on one
+site is not `/admin` on another sharing the address (00029).
+
 **Pause** is a run status. The lease query only hands out tasks of a `running`
 run, so setting `paused` stops leasing from the next request without touching the
 workers; tasks in flight complete and report as usual, and the planner does not

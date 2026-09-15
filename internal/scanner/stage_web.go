@@ -42,6 +42,7 @@ func proxiedClient(px string) *http.Client {
 // (worker-pipeline.md §3 / §2 web versions).
 func (s *Scanner) serviceProbe(ctx context.Context, job scanproto.Job) ([]scanproto.Observation, error) {
 	ip, port := targetIPPort(job)
+	host := targetHost(job)
 	if ip == "" {
 		return nil, nil
 	}
@@ -73,7 +74,7 @@ func (s *Scanner) serviceProbe(ctx context.Context, job scanproto.Job) ([]scanpr
 			headers[k] = resp.Header.Get(k)
 		}
 		obs = append(obs, scanproto.Observation{
-			Type: scanproto.ObsHTTP, IP: ip, Port: port,
+			Type: scanproto.ObsHTTP, IP: ip, Port: port, Host: host,
 			Status: resp.StatusCode, Title: extractTitle(body), Headers: headers,
 			Favicon: "", Product: resp.Header.Get("Server"),
 			Cookies: cookieNamesFromResponse(resp),
@@ -84,7 +85,7 @@ func (s *Scanner) serviceProbe(ctx context.Context, job scanproto.Job) ([]scanpr
 			sum := sha256.Sum256(c.Raw)
 			na := c.NotAfter
 			obs = append(obs, scanproto.Observation{
-				Type: scanproto.ObsTLS, IP: ip, Port: port,
+				Type: scanproto.ObsTLS, IP: ip, Port: port, Host: host,
 				CertSHA256: hex.EncodeToString(sum[:]),
 				SubjectCN:  c.Subject.CommonName,
 				Issuer:     c.Issuer.CommonName,
@@ -119,6 +120,7 @@ func (s *Scanner) techDetect(ctx context.Context, job scanproto.Job) ([]scanprot
 		return nil, nil
 	}
 	ip, port := targetIPPort(job)
+	host := targetHost(job)
 	var obs []scanproto.Observation
 
 	pr := jobParams(job)
@@ -151,7 +153,7 @@ func (s *Scanner) techDetect(ctx context.Context, job scanproto.Job) ([]scanprot
 		for _, r := range rows {
 			hxProduct, hxVersion := splitProductVersion(str(r, "webserver"))
 			obs = append(obs, scanproto.Observation{
-				Type: scanproto.ObsHTTP, IP: ip, Port: port,
+				Type: scanproto.ObsHTTP, IP: ip, Port: port, Host: host,
 				Status: num(r, "status_code"),
 				Title:  str(r, "title"),
 				// Only headers that actually carry a value: an empty one is not a
@@ -186,7 +188,7 @@ func (s *Scanner) techDetect(ctx context.Context, job scanproto.Job) ([]scanprot
 						n, v = name[:i], name[i+1:]
 					}
 					obs = append(obs, scanproto.Observation{
-						Type: scanproto.ObsTech, IP: ip, Port: port,
+						Type: scanproto.ObsTech, IP: ip, Port: port, Host: host,
 						TechName: n, TechVersion: v, TechConfidence: 90,
 					})
 				}
@@ -208,16 +210,16 @@ func (s *Scanner) techDetect(ctx context.Context, job scanproto.Job) ([]scanprot
 	defer resp.Body.Close()
 	if server := resp.Header.Get("Server"); server != "" {
 		name, version := splitProductVersion(server)
-		obs = append(obs, scanproto.Observation{Type: scanproto.ObsTech, IP: ip, Port: port,
+		obs = append(obs, scanproto.Observation{Type: scanproto.ObsTech, IP: ip, Port: port, Host: host,
 			TechName: name, TechVersion: version, TechConfidence: 60})
 	}
 	if x := resp.Header.Get("X-Powered-By"); x != "" {
 		name, version := splitProductVersion(x)
-		obs = append(obs, scanproto.Observation{Type: scanproto.ObsTech, IP: ip, Port: port,
+		obs = append(obs, scanproto.Observation{Type: scanproto.ObsTech, IP: ip, Port: port, Host: host,
 			TechName: name, TechVersion: version, TechConfidence: 60})
 	}
 	if names := cookieNamesFromResponse(resp); len(names) > 0 {
-		obs = append(obs, scanproto.Observation{Type: scanproto.ObsHTTP, IP: ip, Port: port,
+		obs = append(obs, scanproto.Observation{Type: scanproto.ObsHTTP, IP: ip, Port: port, Host: host,
 			Status: resp.StatusCode, Cookies: names})
 	}
 	return obs, nil
@@ -237,6 +239,7 @@ func (s *Scanner) screenshot(ctx context.Context, job scanproto.Job) ([]scanprot
 		return nil, nil
 	}
 	ip, port := targetIPPort(job)
+	host := targetHost(job)
 
 	outDir, err := os.MkdirTemp("", "asm-shot-")
 	if err != nil {
@@ -270,7 +273,7 @@ func (s *Scanner) screenshot(ctx context.Context, job scanproto.Job) ([]scanprot
 	if s.Upload == nil {
 		// stage-test mode: report what would be stored, without persisting.
 		return []scanproto.Observation{{
-			Type: scanproto.ObsScreenshot, IP: ip, Port: port,
+			Type: scanproto.ObsScreenshot, IP: ip, Port: port, Host: host,
 			ScreenshotKey: key + " (not uploaded: no store configured)",
 		}}, nil
 	}
@@ -279,7 +282,7 @@ func (s *Scanner) screenshot(ctx context.Context, job scanproto.Job) ([]scanprot
 		return nil, err
 	}
 	return []scanproto.Observation{{
-		Type: scanproto.ObsScreenshot, IP: ip, Port: port, ScreenshotKey: stored,
+		Type: scanproto.ObsScreenshot, IP: ip, Port: port, Host: host, ScreenshotKey: stored,
 	}}, nil
 }
 
@@ -361,6 +364,15 @@ func portSuffix(scheme string, port int) string {
 		return ""
 	}
 	return ":" + itoaSafe(port)
+}
+
+// targetHost is the virtual host a web job is for, "" for an address-only job.
+// Stamped on every observation so ingest records what that name serves.
+func targetHost(job scanproto.Job) string {
+	if len(job.Targets) == 0 {
+		return ""
+	}
+	return job.Targets[0].Host
 }
 
 func targetIPPort(job scanproto.Job) (string, int) {

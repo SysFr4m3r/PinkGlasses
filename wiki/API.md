@@ -160,7 +160,7 @@ Runs a schedule starts carry `trigger: "scheduled"`.
 | `GET /scopes/{scopeID}/hostrows` | viewer | the Hosts table: one row per name→address pair, `?q=` and `?unresolved=true` to include names that resolve to nothing. Returns `{rows, unresolved_hidden}` |
 | `GET /hosts/{ipID}` | viewer | everything about one address: `{host, names, services, findings}`. Each name carries `history` (one entry per run that resolved it) and `also_resolved_to`; each service carries `history` (one entry per run that port-scanned the address), the latest banner/HTTP/TLS, technologies, and cookie **names** |
 | `GET /hosts/{ipID}/services` | viewer | open ports only |
-| `GET /services/{serviceID}/screenshot` | viewer | `image/png`, the most recent capture |
+| `GET /services/{serviceID}/screenshot` | viewer | `image/png`, the most recent capture; `?host=` picks one virtual host's capture, otherwise the address-level one with any host's as fallback |
 | `GET /scopes/{scopeID}/search` | viewer | `?q=` in the query language, one company |
 | `GET /search` | viewer | `?q=` across every company; `?scope=` narrows |
 
