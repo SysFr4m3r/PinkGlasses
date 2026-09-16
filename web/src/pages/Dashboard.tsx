@@ -58,12 +58,12 @@ export default function Dashboard({ scopeID }: { scopeID: string }) {
                 <tr key={t.id}>
                   <td className="mono">{t.value}</td>
                   <td className="muted">{t.kind}</td>
-                  <td title={t.mode === "active"
-                    ? (t.authorized_by ? `Active scanning authorized by ${t.authorized_by}${t.authorized_at ? " on " + new Date(t.authorized_at).toLocaleDateString() : ""}` : "Active, but no authorization recorded — active stages skip it")
-                    : t.mode === "exclude" ? "Never scanned, and left out of every run" : "Passive discovery only; nothing is sent to it"}>
-                    {t.mode === "active"
-                      ? <span className={"badge" + (t.authorized_by ? " b-active" : "")}>{t.authorized_by ? "active" : "active · unauthorized"}</span>
-                      : <span className="badge">{t.mode.replace("_", " ")}</span>}
+                  <td title={t.mode === "active" && t.authorized_by
+                    ? `Active scanning authorized by ${t.authorized_by}${t.authorized_at ? " on " + new Date(t.authorized_at).toLocaleDateString() : ""}`
+                    : "Passive discovery only; nothing is sent to it"}>
+                    {t.mode === "active" && t.authorized_by
+                      ? <span className="badge b-active">active</span>
+                      : <span className="badge">{t.mode === "exclude" ? "excluded" : "passive only"}</span>}
                   </td>
                   <td>{(t.tags ?? []).map((x) => <span key={x} className="pill">{x}</span>)}</td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
@@ -88,17 +88,16 @@ export default function Dashboard({ scopeID }: { scopeID: string }) {
 }
 
 /**
- * Edit a target: the host or range itself, how it is scanned, its authorization
- * and tags. Authorization is an explicit tick: switching to active without it
- * leaves the target active but unauthorized, which the active stages skip.
+ * Edit a target — the same three things as when it was added: the host or
+ * range, its tags, and whether active scanning is authorized. Nothing about
+ * how a scan runs belongs here; that is the Start-a-scan dialog.
  */
 function EditTarget({ scopeID, target, onClose, onDone }: {
   scopeID: string; target: Target; onClose: () => void; onDone: () => void;
 }) {
   const toast = useToast();
   const [value, setValue] = useState(target.value);
-  const [mode, setMode] = useState(target.mode);
-  const [authorize, setAuthorize] = useState(!!target.authorized_by);
+  const [active, setActive] = useState(target.mode === "active" && !!target.authorized_by);
   const [tags, setTags] = useState((target.tags ?? []).join(", "));
   const [busy, setBusy] = useState(false);
 
@@ -107,9 +106,9 @@ function EditTarget({ scopeID, target, onClose, onDone }: {
     try {
       await api.patchTarget(scopeID, target.id, {
         ...(value.trim() !== target.value ? { value: value.trim() } : {}),
-        mode,
+        mode: active ? "active" : "passive_only",
+        authorize: active,
         tags: tags.split(/[\s,]+/).filter(Boolean),
-        ...(mode === "active" ? { authorize } : {}),
       });
       toast("ok", `${value.trim()} updated`);
       onDone(); onClose();
@@ -120,12 +119,6 @@ function EditTarget({ scopeID, target, onClose, onDone }: {
     }
   }
 
-  const MODES: { id: string; label: string; hint: string }[] = [
-    { id: "passive_only", label: "Passive only", hint: "Discovery and resolution from public sources. Nothing is sent to it." },
-    { id: "active", label: "Active", hint: "Port scan, probing, screenshots, directory search and the vulnerability check — only if authorized below." },
-    { id: "exclude", label: "Exclude", hint: "Left out of every run, even passive ones. Keeps the record that it is yours." },
-  ];
-
   return (
     <Modal
       title={`Edit ${target.value}`} open onClose={onClose}
@@ -134,39 +127,27 @@ function EditTarget({ scopeID, target, onClose, onDone }: {
         <button onClick={save} disabled={busy || !value.trim()}>{busy ? "Saving…" : "Save"}</button>
       </>}
     >
-      <div className="field" style={{ marginTop: 0 }}>
+      <div className="field">
         <label>Domain, IP or CIDR</label>
         <input className="mono" value={value} onChange={(e) => setValue(e.target.value)} style={{ width: "100%" }} />
-        <div className="hint">
-          Currently a {target.kind}; the kind is detected again from what you type. What earlier scans
-          found stays in the inventory either way.
-        </div>
+        <div className="hint">The kind is detected automatically. What earlier scans found stays in the inventory.</div>
       </div>
-      <div className="param-label" style={{ minWidth: 0, marginBottom: 6 }}>How it is scanned</div>
-      {MODES.map((m) => (
-        <label key={m.id} className="check" style={{ cursor: "pointer" }}>
-          <input type="radio" name="tmode" checked={mode === m.id} onChange={() => setMode(m.id)} />
-          <span><strong>{m.label}</strong><div className="hint" style={{ marginTop: 2 }}>{m.hint}</div></span>
-        </label>
-      ))}
-      {mode === "active" && (
-        <label className="check" style={{ cursor: "pointer", marginLeft: 22 }}>
-          <input type="checkbox" checked={authorize} onChange={(e) => setAuthorize(e.target.checked)} />
-          <span>
-            <strong>Authorize active scanning</strong>
-            <div className="hint" style={{ marginTop: 2 }}>
-              {target.authorized_by
-                ? `Currently authorized by ${target.authorized_by}${target.authorized_at ? " on " + new Date(target.authorized_at).toLocaleDateString() : ""}. Untick to revoke.`
-                : "Recorded with your name and the time. Tick it only for infrastructure you are authorized to scan."}
-            </div>
-          </span>
-        </label>
-      )}
-      <div className="field" style={{ marginTop: 12 }}>
-        <label>Tags</label>
-        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="production, eu" style={{ width: "100%" }} />
-        <div className="hint">Comma-separated. Tags group targets; a run can be started over just one tag through the API.</div>
+      <div className="field">
+        <label>Tags (optional)</label>
+        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="production, eu" />
+        <div className="hint">Tags group targets; a run can be started over just one tag through the API.</div>
       </div>
+      <label className="check" style={{ cursor: "pointer" }}>
+        <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+        <span>
+          <strong>Authorize active scanning</strong>
+          <div className="hint" style={{ marginTop: 3 }}>
+            {target.authorized_by
+              ? `Currently authorized by ${target.authorized_by}${target.authorized_at ? " on " + new Date(target.authorized_at).toLocaleDateString() : ""}. Untick for passive-only discovery.`
+              : "Leave unticked for passive-only discovery (CT logs, DNS, public APIs — no packets sent to the target). Only tick this for infrastructure you are authorized to scan."}
+          </div>
+        </span>
+      </label>
     </Modal>
   );
 }
