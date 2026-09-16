@@ -170,6 +170,27 @@ it is permanent — as is losing the password. If you lock yourself out,
 `go run ./tools/pwhash 'new password'` prints a hash you can write straight into
 `app_user.password_hash`.
 
+## Run it from the published images
+
+Every push to `main` publishes two images to the GitHub Container Registry, listed under
+the repository's **Packages**: `ghcr.io/cobbbex/pinkglasses` (the control plane — api,
+gateway, scheduler, provisioner and migrate are one image, chosen by entrypoint) and
+`ghcr.io/cobbbex/pinkglasses-worker` (the scanning agent with its tools). A tag `v1.2.3`
+also publishes `1.2.3`, `1.2` and `1`; every push publishes `sha-<short>`.
+
+To run without building anything, add the override file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+```
+
+`PINKGLASSES_IMAGE_TAG` in `.env` pins a version (default `latest`). The override also
+points the provisioner at the published worker image, so a run's own workers come from it
+too. The first publish creates each package **private**; to let others pull without a
+token, open the package on GitHub → *Package settings* → *Change visibility* → Public,
+once per image. The packages link to this repository through the image source label.
+
 ## Stop it
 
 ```bash

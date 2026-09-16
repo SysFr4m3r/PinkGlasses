@@ -1,0 +1,24 @@
+# Run from the published images instead of building locally:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+#
+# PINKGLASSES_IMAGE_TAG picks a version (default latest); PINKGLASSES_IMAGE_OWNER
+# the GitHub owner the images were published under (default cobbbex).
+services:
+  migrate:
+    image: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses:${PINKGLASSES_IMAGE_TAG:-latest}
+  api:
+    image: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses:${PINKGLASSES_IMAGE_TAG:-latest}
+  gateway:
+    image: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses:${PINKGLASSES_IMAGE_TAG:-latest}
+  scheduler:
+    image: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses:${PINKGLASSES_IMAGE_TAG:-latest}
+  provisioner:
+    image: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses:${PINKGLASSES_IMAGE_TAG:-latest}
+    environment:
+      # A run's own workers are created from this image; it is the one the
+      # worker service below pulls, so it is present on the host.
+      ASM_WORKER_IMAGE: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses-worker:${PINKGLASSES_IMAGE_TAG:-latest}
+  worker:
+    image: ghcr.io/${PINKGLASSES_IMAGE_OWNER:-cobbbex}/pinkglasses-worker:${PINKGLASSES_IMAGE_TAG:-latest}

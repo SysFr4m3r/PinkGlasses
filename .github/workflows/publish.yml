@@ -1,0 +1,78 @@
+# Publish the two images to the GitHub Container Registry, where they show up
+# under the repository's Packages.
+#
+#   ghcr.io/<owner>/pinkglasses         the control plane: api, gateway,
+#                                        scheduler, provisioner and migrate are
+#                                        one image, chosen by entrypoint
+#   ghcr.io/<owner>/pinkglasses-worker  the scanning agent with its tools
+#
+# Every push to main publishes :latest and :sha-<short>; a tag v1.2.3
+# publishes :1.2.3, :1.2 and :1. The registry login is the workflow's own
+# token, so no secret has to be created. The first push creates each package
+# private; make it public once under the package's settings if that is wanted.
+name: Publish images
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: pinkglasses
+            file: Dockerfile
+          - image: pinkglasses-worker
+            file: deploy/Dockerfile.worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Image names must be lowercase; the owner login may not be.
+      - name: Image name
+        id: name
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.name.outputs.ref }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.image }}
+            org.opencontainers.image.description=PinkGlasses — external attack surface, continuously watched
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
