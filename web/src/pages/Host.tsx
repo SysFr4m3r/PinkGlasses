@@ -121,7 +121,7 @@ export default function Host() {
           active authorization.
         </div>
       ) : (
-        services.map((sv) => <ServiceCard key={sv.id} sv={sv} addr={h.addr} />)
+        services.map((sv) => <ServiceCard key={sv.id} sv={sv} addr={h.addr} names={names.map((n) => n.name)} />)
       )}
 
       <DiscoveredPaths findings={findings.filter((f) => f.kind === "content_discovery")} services={services} addr={h.addr} />
@@ -160,7 +160,12 @@ export default function Host() {
  * every one of them is rendered as text by React — never as markup
  * (architecture.md §10.3).
  */
-function ServiceCard({ sv, addr }: { sv: HostService; addr: string }) {
+function ServiceCard({ sv, addr, names }: { sv: HostService; addr: string; names: string[] }) {
+  // Names to open this port by: the sites seen on it, or failing that the
+  // names resolving to the address. Up to three get a button in the header;
+  // every site still has its own Open in the list below.
+  const isWeb = sv.http?.status !== undefined || (sv.vhosts?.length ?? 0) > 0;
+  const byHost = ((sv.vhosts?.length ?? 0) > 0 ? sv.vhosts!.map((v) => v.host) : names).slice(0, 3);
   const http = sv.http ?? null;
   // Defensive against a malformed document: only a plain object, and only its
   // string values, are rendered — an object child would take the page down.
@@ -188,7 +193,10 @@ function ServiceCard({ sv, addr }: { sv: HostService; addr: string }) {
         </span>
         {product && <span>{product}</span>}
         {http?.status !== undefined && <span className="pill">HTTP {http.status}</span>}
-        {http?.status !== undefined && <OpenLink href={siteURL(addr, sv.port)} label="Open by address" />}
+        {isWeb && <OpenLink href={siteURL(addr, sv.port)} label="Open by address" />}
+        {isWeb && byHost.map((n) => (
+          <OpenLink key={n} href={siteURL(n, sv.port)} label={byHost.length === 1 ? "Open by host" : `Open ${n}`} />
+        ))}
         <span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>
           {sv.observed_at
             ? `observed ${new Date(sv.observed_at).toLocaleString()}`
