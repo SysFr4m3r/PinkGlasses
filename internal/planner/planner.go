@@ -292,7 +292,7 @@ func (p *Planner) scanNewAddresses(ctx context.Context, run domain.ScanRun) erro
 	// that would make this tool an SSRF primitive against its own host — the
 	// exact hole wiki/Architecture.md §10.1 claims to close. The guard existed and
 	// was never consulted here.
-	scopeTargets, err := p.st.ListTargets(ctx, run.ScopeID, "")
+	scopeTargets, err := p.st.ListTargetsMerged(ctx, run.ScopeID, "")
 	if err != nil {
 		return err
 	}
@@ -643,7 +643,7 @@ func isPrivateTarget(v string) bool {
 // A run_target carries only the value it was created from, so this maps back to
 // the scope target that authorizes it.
 func (p *Planner) authorizedRunTargets(ctx context.Context, run domain.ScanRun) (map[uuid.UUID]bool, error) {
-	scopeTargets, err := p.st.ListTargets(ctx, run.ScopeID, "")
+	scopeTargets, err := p.st.ListTargetsMerged(ctx, run.ScopeID, "")
 	if err != nil {
 		return nil, err
 	}

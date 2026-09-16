@@ -670,8 +670,10 @@ to see its entries. *Edit* is the same form and changes the group as one thing �
 change its list (entries taken off it are removed, new lines added), its tags, tick or
 untick the authorization for every entry, recorded with your name and the time. *Remove*
 drops the group and its entries. What earlier scans discovered under them stays in the
-inventory whatever you change. Anything added through the plain targets API without a
-group becomes a group of its own, named after itself.
+inventory whatever you change. The same entry may sit in several groups; a scan covers it
+once, and it counts as authorized if any of its groups authorizes it (and as excluded if
+any excludes it). Anything added through the plain targets API without a group becomes a
+group of its own, named after itself.
 
 **Runs → + New scan → When.** The same dialog starts a scan now, once at a time
 you pick, or on a repeat — and whatever it runs carries the targets, profile, exit

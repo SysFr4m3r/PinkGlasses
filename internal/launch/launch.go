@@ -115,7 +115,7 @@ func (l *Launcher) Start(ctx context.Context, scopeID uuid.UUID, o Options) (dom
 	}
 
 	// Targets: never scan an excluded one.
-	scopeTargets, err := l.st.ListTargets(ctx, scopeID, o.Tag)
+	scopeTargets, err := l.st.ListTargetsMerged(ctx, scopeID, o.Tag)
 	if err != nil {
 		return domain.ScanRun{}, refuse(http.StatusInternalServerError, "%v", err)
 	}
@@ -133,7 +133,7 @@ func (l *Launcher) Start(ctx context.Context, scopeID uuid.UUID, o Options) (dom
 		}
 	}
 	if len(runTargets) == 0 {
-		all, _ := l.st.ListTargets(ctx, scopeID, "")
+		all, _ := l.st.ListTargetsMerged(ctx, scopeID, "")
 		usable := 0
 		for _, t := range all {
 			if t.Mode != domain.ModeExclude {

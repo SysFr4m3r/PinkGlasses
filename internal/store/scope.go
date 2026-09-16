@@ -81,10 +81,9 @@ func (s *Store) AddTarget(ctx context.Context, t domain.ScopeTarget) (domain.Sco
 	err := s.Pool.QueryRow(ctx, `
 		INSERT INTO scope_target (scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, group_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-		ON CONFLICT (scope_id, kind, value) DO UPDATE
+		ON CONFLICT (group_id, kind, value) DO UPDATE
 		  SET tags=EXCLUDED.tags, mode=EXCLUDED.mode, pool_id=EXCLUDED.pool_id,
-		      authorized_by=EXCLUDED.authorized_by, authorized_at=EXCLUDED.authorized_at,
-		      group_id=COALESCE(EXCLUDED.group_id, scope_target.group_id)
+		      authorized_by=EXCLUDED.authorized_by, authorized_at=EXCLUDED.authorized_at
 		RETURNING id, created_at`,
 		t.ScopeID, t.Kind, t.Value, t.Tags, t.Mode, t.PoolID, t.AuthorizedBy, t.AuthorizedAt, t.GroupID,
 	).Scan(&t.ID, &t.CreatedAt)
@@ -131,6 +130,17 @@ func (s *Store) UpdateTarget(ctx context.Context, scopeID, targetID uuid.UUID, k
 		return t, false, ErrTargetExists
 	}
 	return t, err == nil, err
+}
+
+// ListTargetsMerged is ListTargets with duplicates across groups folded to one
+// row per (kind, value), the way the planner and launcher must see a company:
+// see domain.MergeTargets for how authorization combines.
+func (s *Store) ListTargetsMerged(ctx context.Context, scopeID uuid.UUID, tag string) ([]domain.ScopeTarget, error) {
+	rows, err := s.ListTargets(ctx, scopeID, tag)
+	if err != nil {
+		return nil, err
+	}
+	return domain.MergeTargets(rows), nil
 }
 
 // DeleteTarget removes a target from its scope. Scoped by both ids so a

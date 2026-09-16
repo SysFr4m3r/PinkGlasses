@@ -803,3 +803,11 @@ tasks at all; probing by the first resolving name as well would close that.
       group covered exactly its entries; a schedule over a group, edited before it fired,
       covered the new entry too; the plain targets endpoint makes a group per value; deleting
       a group removed its entries; a run over a deleted group is refused.
+
+Found 2026-09-16 after 24.9: adding a value to a second group in the same company moved
+it out of the first, because a value was unique per company and the insert's conflict
+clause re-pointed the row. Uniqueness is now per group (00033); the same entry may sit in
+several groups. The planner and launcher read a merged view — one row per value, excluded
+if any group excludes it, otherwise authorized if any group authorizes it — so a run
+covers it once. Verified: shared value kept in both groups, scanned once, and left intact
+when the other group was deleted.

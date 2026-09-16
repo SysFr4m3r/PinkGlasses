@@ -123,6 +123,35 @@ type ScopeTarget struct {
 	CreatedAt    time.Time  `json:"created_at"`
 }
 
+// MergeTargets folds a company's target rows to one per (kind, value): the
+// same entry may sit in several groups. Scanning decisions take the union —
+// excluded anywhere means excluded, otherwise authorized anywhere means
+// authorized — so a group that authorizes a host is not undone by another
+// group that merely lists it. Order of first appearance is kept.
+func MergeTargets(rows []ScopeTarget) []ScopeTarget {
+	index := map[string]int{}
+	var out []ScopeTarget
+	for _, t := range rows {
+		key := t.Kind + "\x00" + t.Value
+		i, seen := index[key]
+		if !seen {
+			index[key] = len(out)
+			out = append(out, t)
+			continue
+		}
+		cur := out[i]
+		switch {
+		case cur.Mode == ModeExclude:
+			// stays excluded
+		case t.Mode == ModeExclude:
+			out[i] = t
+		case !cur.Authorized() && t.Authorized():
+			out[i] = t
+		}
+	}
+	return out
+}
+
 // Authorized reports whether active scanning of this target is permitted.
 func (t ScopeTarget) Authorized() bool {
 	return t.Mode == ModeActive && t.AuthorizedBy != nil && t.AuthorizedAt != nil
