@@ -98,8 +98,9 @@ type RerunSpec struct {
 	Params      map[string]string
 	WordlistIDs []uuid.UUID
 	// Exit is "local" when the run had its own fleet (VPNConfigID and Workers
-	// come from it), "remote" when it was bound to a standing pool, "" for a
-	// passive run.
+	// come from it; Workers is 0 when the fleet was auto-sized, so a rerun is
+	// auto-sized again), "remote" when it was bound to a standing pool, "" for
+	// a passive run.
 	Exit        string
 	VPNConfigID *uuid.UUID
 	PoolID      *uuid.UUID
@@ -116,7 +117,7 @@ func (s *Store) RerunSpec(ctx context.Context, id uuid.UUID) (RerunSpec, error) 
 	var hadFleet bool
 	err := s.Pool.QueryRow(ctx, `
 		SELECT r.scope_id, r.profile, r.profile_id, r.params, r.pool_id,
-		       f.run_id IS NOT NULL, f.vpn_config_id, COALESCE(f.workers, 0),
+		       f.run_id IS NOT NULL, f.vpn_config_id, CASE WHEN COALESCE(f.workers_auto,false) THEN 0 ELSE COALESCE(f.workers, 0) END,
 		       COALESCE((SELECT array_agg(wordlist_id) FROM run_wordlist WHERE run_id=r.id), '{}'),
 		       COALESCE((SELECT array_agg(value ORDER BY value) FROM run_target WHERE run_id=r.id), '{}')
 		FROM scan_run r LEFT JOIN run_fleet f ON f.run_id = r.id

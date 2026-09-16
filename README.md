@@ -210,8 +210,12 @@ Every worker is the same agent; what differs is where it runs and what it is for
 Nothing local is created by hand. The `worker` service in docker-compose is the standing
 worker: it runs the passive stages (subfinder, DNS brute force, resolution, enrichment)
 and never touches a target. When you start an active scan from local workers, the
-scheduler asks the `provisioner` for a VPN gateway and the number of workers you chose
-in the dialog; they scan through the tunnel and are removed when the run ends. The
+scheduler asks the `provisioner` for a VPN gateway and a fleet of workers sized from the
+run's targets — one, plus one per CIDR /24-equivalent or per five targets, at most four —
+unless you set a number under Customize scanning; they scan through the tunnel and are
+removed when the run ends. Every run's workers share one tunnel and one target, so more
+of them adds noise and RAM, not speed, which is why the count is not a decision the
+dialog asks you to make. The
 standing local pool is never offered as an exit, so no active scan can leave from this
 host's own address.
 

@@ -89,7 +89,7 @@ export interface Worker {
  * run whose fleet failed to come up did — scan_run has no error column.
  */
 export interface RunFleet {
-  run_id: string; workers: number; status: "requested" | "up" | "failed" | "torn_down";
+  run_id: string; workers: number; workers_auto?: boolean; status: "requested" | "up" | "failed" | "torn_down";
   vpn_config_id?: string | null; error?: string | null; egress_ip?: string | null;
   created_at: string; ready_at?: string | null;
 }

@@ -756,3 +756,14 @@ tasks at all; probing by the first resolving name as well would close that.
       `product:*` already run, exactly as if you had gone there and clicked it. Search runs
       `?q=` on arrival; verified: the tile lands on `/search?q=product:*` with 48 services
       across 38 sites summarized.
+
+- [x] 24.3 **Fleet size is Auto.** The Workers field leaves the main flow: the launcher sizes a
+      run's fleet from its targets (1, plus one per CIDR /24-equivalent or per five targets,
+      capped at 4), and an explicit 1–8 override lives under Customize scanning. Schedules
+      and reruns keep "Auto" rather than freezing a computed number. Follow-up, not here:
+      grow the fleet mid-run when active tasks queue with every slot busy.
+      Done 2026-09-16: migration 00031 (`run_fleet.workers_auto`, schedule default 0 = Auto,
+      existing 2s made Auto since nobody chose them). Verified on lanet.ua: a run with no
+      count got a fleet of 1 (`workers_auto`), came up through the VPN with gateway + 1
+      worker and tore down on stop; a schedule without a count reads 0; 9 is refused; the
+      rerun spec of an auto-sized run is Auto again.

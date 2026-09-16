@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -156,6 +157,9 @@ func (l *Launcher) Start(ctx context.Context, scopeID uuid.UUID, o Options) (dom
 		if exitPlan, ref = l.checkExit(ctx, scopeID, o); ref != nil {
 			return domain.ScanRun{}, ref
 		}
+		if exitPlan.kind == "local" && exitPlan.auto {
+			exitPlan.workers = autoFleetSize(runTargets)
+		}
 	}
 
 	run := domain.ScanRun{ScopeID: scopeID, Profile: profile, Trigger: o.Trigger, MaxConcurrency: 32}
@@ -228,6 +232,8 @@ type exitPlan struct {
 	poolID  uuid.UUID
 	vpnID   uuid.UUID
 	workers int
+	// auto: workers was sized from the run's targets, not asked for.
+	auto bool
 }
 
 // checkExit validates where a run's active stages will run from, and refuses
@@ -284,14 +290,16 @@ func (l *Launcher) checkExit(ctx context.Context, scopeID uuid.UUID, o Options) 
 		if err != nil || vc.ScopeID != scopeID {
 			return nil, refuse(http.StatusBadRequest, "unknown vpn config")
 		}
+		// 0 is Auto: Start sizes the fleet from the run's targets once it knows
+		// them. An explicit count is honoured up to the ceiling.
 		workers := o.WorkerCount
-		if workers <= 0 {
-			workers = defaultFleetWorkers
+		if workers < 0 {
+			workers = 0
 		}
 		if workers > maxFleetWorkers {
 			return nil, refuse(http.StatusBadRequest, "a run may ask for at most %d workers", maxFleetWorkers)
 		}
-		return &exitPlan{kind: "local", vpnID: vpnID, workers: workers}, nil
+		return &exitPlan{kind: "local", vpnID: vpnID, workers: workers, auto: workers == 0}, nil
 
 	case "":
 		return nil, refuse(http.StatusBadRequest,
@@ -312,23 +320,27 @@ func (l *Launcher) bindExit(ctx context.Context, run domain.ScanRun, p exitPlan)
 		if err := l.st.SetRunVPN(ctx, run.ID, p.vpnID); err != nil {
 			return err
 		}
-		return l.requestRunFleet(ctx, run, p.workers, &p.vpnID)
+		return l.requestRunFleet(ctx, run, p.workers, p.auto, &p.vpnID)
 	}
 	return nil
 }
 
 const (
-	defaultFleetWorkers = 2
-	maxFleetWorkers     = 8
-	scanKindLocal       = "local"
+	maxFleetWorkers = 8
+	// autoFleetCap is the most workers Auto will ask for. Every run's workers
+	// share one tunnel and one target, so past this the extra containers add
+	// noise at the target and RAM on the host, not speed; a person who wants
+	// more says so under Customize scanning.
+	autoFleetCap  = 4
+	scanKindLocal = "local"
 )
 
 // requestRunFleet records that a run wants containers of its own: a pool no
 // other run can lease from, and an enrollment token bound to it. Nothing is
 // created here; the scheduler builds the fleet from this record.
-func (l *Launcher) requestRunFleet(ctx context.Context, run domain.ScanRun, count int, vpnID *uuid.UUID) error {
+func (l *Launcher) requestRunFleet(ctx context.Context, run domain.ScanRun, count int, auto bool, vpnID *uuid.UUID) error {
 	if count <= 0 {
-		count = defaultFleetWorkers
+		count = 1
 	}
 	if count > maxFleetWorkers {
 		return fmt.Errorf("a run may ask for at most %d workers", maxFleetWorkers)
@@ -350,8 +362,36 @@ func (l *Launcher) requestRunFleet(ctx context.Context, run domain.ScanRun, coun
 		return err
 	}
 	return l.st.CreateRunFleet(ctx, store.RunFleet{
-		RunID: run.ID, PoolID: &poolID, Workers: count, EnrollToken: token, VPNConfigID: vpnID,
+		RunID: run.ID, PoolID: &poolID, Workers: count, WorkersAuto: auto, EnrollToken: token, VPNConfigID: vpnID,
 	})
+}
+
+// autoFleetSize picks a fleet size from what a run covers: one worker, plus
+// one per CIDR /24-equivalent and one per five names or addresses, capped.
+// The number of hosts is not known until discovery, so this sizes on the
+// shape of the request; the fleet manager may grow it later (TODO 24.3).
+func autoFleetSize(targets []domain.RunTarget) int {
+	n := 1
+	singles := 0
+	for _, t := range targets {
+		if t.Kind == "cidr" {
+			if _, ipn, err := net.ParseCIDR(t.Value); err == nil {
+				ones, bits := ipn.Mask.Size()
+				if hostBits := bits - ones; hostBits > 8 {
+					n += 1 << (hostBits - 8) // one per /24
+				} else {
+					n++
+				}
+				continue
+			}
+		}
+		singles++
+	}
+	n += singles / 5
+	if n > autoFleetCap {
+		n = autoFleetCap
+	}
+	return n
 }
 
 // Due starts every schedule whose time has come. Called from the scheduler

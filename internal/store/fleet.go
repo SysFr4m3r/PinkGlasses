@@ -15,8 +15,11 @@ type RunFleet struct {
 	RunID uuid.UUID `json:"run_id"`
 	// PoolID is null once the fleet has been torn down: the pool is transient,
 	// the record of what the fleet did is not (migration 00020).
-	PoolID      *uuid.UUID `json:"pool_id,omitempty"`
-	Workers     int        `json:"workers"`
+	PoolID  *uuid.UUID `json:"pool_id,omitempty"`
+	Workers int        `json:"workers"`
+	// WorkersAuto says the launcher chose Workers from the run's targets rather
+	// than a person asking for that number.
+	WorkersAuto bool       `json:"workers_auto"`
 	EnrollToken string     `json:"-"` // never leaves the server
 	VPNConfigID *uuid.UUID `json:"vpn_config_id,omitempty"`
 	Status      string     `json:"status"` // requested|up|failed|torn_down
@@ -26,12 +29,12 @@ type RunFleet struct {
 	ReadyAt     *time.Time `json:"ready_at,omitempty"`
 }
 
-const fleetCols = `run_id, pool_id, workers, enroll_token, vpn_config_id, status, error, egress_ip, created_at, ready_at`
+const fleetCols = `run_id, pool_id, workers, enroll_token, vpn_config_id, status, error, egress_ip, created_at, ready_at, workers_auto`
 
 func scanFleet(row interface{ Scan(...any) error }) (RunFleet, error) {
 	var f RunFleet
 	err := row.Scan(&f.RunID, &f.PoolID, &f.Workers, &f.EnrollToken, &f.VPNConfigID,
-		&f.Status, &f.Error, &f.EgressIP, &f.CreatedAt, &f.ReadyAt)
+		&f.Status, &f.Error, &f.EgressIP, &f.CreatedAt, &f.ReadyAt, &f.WorkersAuto)
 	return f, err
 }
 
@@ -51,9 +54,9 @@ func (s *Store) CreateRunPool(ctx context.Context, name string) (uuid.UUID, erro
 // containers existing is recoverable rather than a run that waits forever.
 func (s *Store) CreateRunFleet(ctx context.Context, f RunFleet) error {
 	_, err := s.Pool.Exec(ctx, `
-		INSERT INTO run_fleet (run_id, pool_id, workers, enroll_token, vpn_config_id, status)
-		VALUES ($1,$2,$3,$4,$5,'requested')`,
-		f.RunID, f.PoolID, f.Workers, f.EnrollToken, f.VPNConfigID)
+		INSERT INTO run_fleet (run_id, pool_id, workers, enroll_token, vpn_config_id, status, workers_auto)
+		VALUES ($1,$2,$3,$4,$5,'requested',$6)`,
+		f.RunID, f.PoolID, f.Workers, f.EnrollToken, f.VPNConfigID, f.WorkersAuto)
 	return err
 }
 

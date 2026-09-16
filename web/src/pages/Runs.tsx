@@ -293,7 +293,9 @@ function LaunchModal({
   const [exit, setExit] = useState<"local" | "remote">("local");
   const [vpnID, setVpnID] = useState("");
   const [poolID, setPoolID] = useState("");
-  const [workerCount, setWorkerCount] = useState(2);
+  // 0 is Auto: the launcher sizes the fleet from the run's targets. A number
+  // is an override, offered under Customize scanning rather than up front.
+  const [workerCount, setWorkerCount] = useState(0);
   const { data: pools } = useQuery({ queryKey: ["pools"], queryFn: () => api.pools() });
   const { data: vpn } = useQuery({
     queryKey: ["vpn", scopeID], queryFn: () => api.vpnConfigs(scopeID),
@@ -310,7 +312,7 @@ function LaunchModal({
       ...(wordlistIDs.length ? { wordlist_ids: wordlistIDs } : {}),
       ...(profile !== "passive"
         ? exit === "local"
-          ? { exit, vpn_config_id: vpnID, worker_count: workerCount }
+          ? { exit, vpn_config_id: vpnID, ...(workerCount > 0 ? { worker_count: workerCount } : {}) }
           : { exit, pool_id: poolID }
         : {}),
     };
@@ -456,11 +458,11 @@ function LaunchModal({
                       </option>
                     ))}
                   </select>
-                  <label className="param-label" style={{ minWidth: 0 }}>Workers</label>
-                  <input
-                    type="number" min={1} max={8} value={workerCount} style={{ width: 64 }}
-                    onChange={(e) => setWorkerCount(Math.min(8, Math.max(1, Number(e.target.value) || 1)))}
-                  />
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {workerCount > 0
+                      ? `${workerCount} worker${workerCount === 1 ? "" : "s"}, set under Customize scanning.`
+                      : "Workers sized to the targets automatically."}
+                  </span>
                 </div>
               )}
             </span>
@@ -582,6 +584,19 @@ function LaunchModal({
 
       {manual && (
         <div className="manual-panel">
+          {!passive && exit === "local" && (
+            <div className="row" style={{ marginBottom: 12, gap: 10 }}>
+              <label className="param-label" style={{ minWidth: 0 }}>Run workers</label>
+              <select value={String(workerCount)} onChange={(e) => setWorkerCount(Number(e.target.value))}>
+                <option value="0">Auto</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span className="muted" style={{ fontSize: 12 }}>
+                Auto is one worker, plus one per CIDR /24 or per five targets, at most four. All of a run's
+                workers share its tunnel and its target, so more adds noise and RAM rather than speed.
+              </span>
+            </div>
+          )}
           <ScanSettings
             scopeID={scopeID}
             values={params}
@@ -659,9 +674,10 @@ function FleetBanner({ runID }: { runID: string }) {
   const f = data?.fleet;
   if (!f) return null;
 
+  const sized = f.workers_auto ? " (sized automatically)" : "";
   const what = f.vpn_config_id
-    ? `a VPN gateway and ${f.workers} worker${f.workers === 1 ? "" : "s"}`
-    : `${f.workers} worker${f.workers === 1 ? "" : "s"}`;
+    ? `a VPN gateway and ${f.workers} worker${f.workers === 1 ? "" : "s"}${sized}`
+    : `${f.workers} worker${f.workers === 1 ? "" : "s"}${sized}`;
   const line: Record<RunFleet["status"], string> = {
     requested: f.error ? `Waiting to start ${what}: ${f.error}` : `Starting ${what} for this run…`,
     up: `Running on ${what} brought up for this run.`,

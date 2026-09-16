@@ -74,11 +74,12 @@ func (in scheduleInput) apply(sc *store.Schedule) *exitErr {
 	if sc.Exit == "remote" && sc.PoolID == nil {
 		return &exitErr{http.StatusBadRequest, "a remote exit needs pool_id"}
 	}
+	// worker_count 0 is Auto: each run's fleet is sized from its targets.
 	if in.WorkerCount > 0 {
 		sc.WorkerCount = in.WorkerCount
 	}
-	if sc.WorkerCount <= 0 {
-		sc.WorkerCount = 2
+	if sc.WorkerCount < 0 {
+		sc.WorkerCount = 0
 	}
 	if sc.WorkerCount > 8 {
 		return &exitErr{http.StatusBadRequest, "worker_count is at most 8"}

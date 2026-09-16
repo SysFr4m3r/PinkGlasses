@@ -118,7 +118,7 @@ asset route is under a scope.
   "exit": "local",                // required unless profile is passive
   "vpn_config_id": "…",           // local: the tunnel this run leaves through
   "pool_id": "…",                 // remote: the pool of enrolled workers instead
-  "worker_count": 2,              // local only, 1–8
+  "worker_count": 0,              // local only: 0 or absent is Auto (sized from the targets, at most 4); 1–8 overrides
   "profile_id": "…",              // a saved preset
   "params": {"httpx_user_agent": "…"},   // ad-hoc overrides
   "wordlist_ids": ["…"]           // explicit lists; empty means the registry defaults
