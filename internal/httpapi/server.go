@@ -105,7 +105,9 @@ func (s *Server) Routes() http.Handler {
 				v.Get("/hosts/{ipID}/services", s.hostServices)
 				v.Get("/services/{serviceID}/screenshot", s.serviceScreenshot)
 				v.Get("/scopes/{scopeID}/search", s.search)
+				v.Get("/scopes/{scopeID}/search/facets", s.searchFacets)
 				v.Get("/search", s.searchGlobal)
+				v.Get("/search/facets", s.searchFacets)
 				v.Get("/scopes/{scopeID}/findings", s.listFindings)
 
 				v.Get("/scopes/{scopeID}/notifications", s.listChannels)

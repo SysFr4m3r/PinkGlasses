@@ -484,6 +484,28 @@ Resolution history starts at migration 00023 and port history at 00016; runs
 before those looked but left no per-run record, and are left out rather than
 read as "did not find".
 
+## Search
+
+**Search** is a Shodan-style query bar over the inventory of one company, or with
+**Global search** over every company at once. Terms are `field:value` joined with
+`AND` / `OR`; free text searches banners, titles and products. Fields: `port`, `proto`,
+`ip`, `domain`, `site` (the virtual host a row is about), `country`, `cloud`, `asn`,
+`product`, `version`, `tech`, `cookie`, `status`, `title`, `cert.expires`, `new`,
+`severity` and, globally, `company`. Numeric fields take `>=` and friends.
+
+`*` is a wildcard anywhere in a value: `product:nginx*`, `title:*login*`. `field:*` means
+the field has a value, so `product:*` is every port whose product is known. A bare `*`
+matches everything, which is how to read the whole inventory.
+
+**Results are one row per site.** A port that serves several names is listed once per
+name, with the *Site* column saying which one the row is about, because a shared address
+answers differently per name; a row marked *by address* is what the port serves when
+asked with no name. Above the rows, a **summary** says what the query matched in
+aggregate — how many services across how many sites, and the products, ports,
+technologies, titles and HTTP statuses behind them, each with a count. Click any value to
+narrow the query by it: `*` → click *nginx* → click *443* is a three-click answer to "which
+nginx ports do we expose on 443, and what do they say".
+
 ## Finding history
 
 Scanning the same host again does not overwrite what the last scan knew. Every run

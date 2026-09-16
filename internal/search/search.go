@@ -31,14 +31,17 @@ var fields = map[string]field{
 	"cloud":   {col: "ip.cloud"},
 	"asn":     {col: "ip.asn", numeric: true},
 	"product": {col: "so.product"},
-	"version": {col: "so.version"},
-	"tech":    {special: "tech"},
-	"cookie":  {special: "cookie"},
-	"status":  {special: "http_status", numeric: true},
-	"title":   {special: "http_title"},
+	// The virtual host a row is about; "" is the address itself.
+	"site":         {col: "so.host"},
+	"host":         {col: "so.host"},
+	"version":      {col: "so.version"},
+	"tech":         {special: "tech"},
+	"cookie":       {special: "cookie"},
+	"status":       {special: "http_status", numeric: true},
+	"title":        {special: "http_title"},
 	"cert.expires": {special: "cert_expires", numeric: true},
-	"new":     {special: "new_days", numeric: true},
-	"severity": {special: "severity"},
+	"new":          {special: "new_days", numeric: true},
+	"severity":     {special: "severity"},
 	// company/scope filter — only valid in global search, where scope is joined.
 	"company": {col: "sc.name"},
 	"scope":   {col: "sc.name"},
@@ -133,8 +136,8 @@ func lex(s string) ([]token, error) {
 type node interface{ sql(*compiler) string }
 
 type binNode struct {
-	op    string // "AND" | "OR"
-	l, r  node
+	op   string // "AND" | "OR"
+	l, r node
 }
 
 func (n binNode) sql(c *compiler) string {
@@ -244,9 +247,19 @@ func (n termNode) sql(c *compiler) string {
 			return compileField(c, f, op, val)
 		}
 	}
-	// free text over banner/title
-	ph := c.bind("%" + raw + "%")
-	return "(so.banner ILIKE " + ph + " OR (so.http->>'title') ILIKE " + ph + ")"
+	// A bare * is "everything": the way to list an inventory and read its
+	// facets without naming a field.
+	if strings.Trim(raw, "*") == "" {
+		return "TRUE"
+	}
+	// free text over banner, title and product; * is a wildcard, otherwise the
+	// text may appear anywhere
+	pat := "%" + raw + "%"
+	if strings.ContainsAny(raw, "*") {
+		pat = strings.ReplaceAll(raw, "*", "%")
+	}
+	ph := c.bind(pat)
+	return "(so.banner ILIKE " + ph + " OR (so.http->>'title') ILIKE " + ph + " OR so.product ILIKE " + ph + ")"
 }
 
 func compileField(c *compiler, f field, op, val string) string {
@@ -254,7 +267,14 @@ func compileField(c *compiler, f field, op, val string) string {
 
 	switch f.special {
 	case "tech":
-		return "EXISTS (SELECT 1 FROM technology t WHERE t.service_id=sv.id AND t.name ILIKE " + c.bind("%"+val+"%") + ")"
+		if val == "*" {
+			return "EXISTS (SELECT 1 FROM technology t WHERE t.service_id=sv.id)"
+		}
+		pat := "%" + val + "%"
+		if strings.ContainsAny(val, "*") {
+			pat = strings.ReplaceAll(val, "*", "%")
+		}
+		return "EXISTS (SELECT 1 FROM technology t WHERE t.service_id=sv.id AND t.name ILIKE " + c.bind(pat) + ")"
 	case "cookie":
 		// Cookie names fingerprint a product where the banner does not:
 		// cookie:webvpn* finds Cisco ASA WebVPN across the whole inventory.
@@ -270,6 +290,12 @@ func compileField(c *compiler, f field, op, val string) string {
 	case "http_status":
 		return "(so.http->>'status')::int " + sqlOp + " " + c.bind(mustInt(val))
 	case "http_title":
+		if val == "*" {
+			return "COALESCE(so.http->>'title','') <> ''"
+		}
+		if strings.ContainsAny(val, "*") {
+			return "(so.http->>'title') ILIKE " + c.bind(strings.ReplaceAll(val, "*", "%"))
+		}
 		return "(so.http->>'title') ILIKE " + c.bind("%"+val+"%")
 	case "cert_expires":
 		// cert.expires<30d  -> not_after within N days
@@ -286,7 +312,15 @@ func compileField(c *compiler, f field, op, val string) string {
 	}
 
 	if f.numeric {
+		if op == ":" && val == "*" {
+			return f.col + " IS NOT NULL"
+		}
 		return f.col + " " + sqlOp + " " + c.bind(mustInt(val))
+	}
+	// field:* is "has a value": an empty product is no product, and ILIKE '%'
+	// would have matched it.
+	if op == ":" && val == "*" {
+		return "COALESCE(" + f.col + "::text,'') <> ''"
 	}
 	if op == ":" && strings.ContainsAny(val, "*") {
 		return f.col + " ILIKE " + c.bind(strings.ReplaceAll(val, "*", "%"))

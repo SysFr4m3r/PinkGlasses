@@ -206,8 +206,16 @@ export interface NotificationDelivery {
   events: number; status: "sent" | "failed" | "skipped"; error?: string | null; sent_at: string;
 }
 
+export interface Facet { value: string; count: number }
+/** What a search matched, summarized: counts of services per value. */
+export interface SearchFacets {
+  services: number; sites: number;
+  products: Facet[]; ports: Facet[]; techs: Facet[]; titles: Facet[]; statuses: Facet[];
+}
 export interface SearchResult {
   service_id: string; scope_id?: string; company?: string;
+  /** The virtual host this row is about; "" is the address itself. */
+  host?: string;
   ip: string; port: number; product?: string | null;
   version?: string | null; title?: string | null; domain?: string | null;
 }
@@ -321,6 +329,8 @@ export const api = {
   search: (s: string, q: string) => req<SearchResult[] | null>(`/scopes/${s}/search?q=${encodeURIComponent(q)}`).then((x) => x ?? []),
   searchGlobal: (q: string, scope?: string) =>
     req<SearchResult[] | null>(`/search?q=${encodeURIComponent(q)}${scope ? "&scope=" + scope : ""}`).then((x) => x ?? []),
+  searchFacets: (s: string, q: string) => req<SearchFacets>(`/scopes/${s}/search/facets?q=${encodeURIComponent(q)}`),
+  searchFacetsGlobal: (q: string) => req<SearchFacets>(`/search/facets?q=${encodeURIComponent(q)}`),
   findings: (s: string) =>
     req<Finding[] | null>(`/scopes/${s}/findings`)
       .then((x) => (x ?? []).map((f) => ({ ...f, history: f.history ?? [] }))),

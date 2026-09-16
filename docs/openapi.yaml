@@ -576,7 +576,25 @@ paths:
   /api/v1/scopes/{scopeID}/search:
     get:
       operationId: getScopesByScopeIDSearch
-      summary: "?q= in the query language, one company"
+      summary: "?q= in the query language, one company; one row per service per site (virtual host), host says which"
+      x-required-role: viewer
+      parameters:
+        - {name: scopeID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
+  /api/v1/scopes/{scopeID}/search/facets:
+    get:
+      operationId: getScopesByScopeIDSearchFacets
+      summary: "?q= — what the query matched, summarized: {services, sites, products, ports, techs, titles, statuses}, each a list of {value, count} (count of services), top 15"
       x-required-role: viewer
       parameters:
         - {name: scopeID, in: path, required: true, schema: {type: string}}
@@ -595,6 +613,22 @@ paths:
     get:
       operationId: getSearch
       summary: "?q= across every company; ?scope= narrows"
+      x-required-role: viewer
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
+  /api/v1/search/facets:
+    get:
+      operationId: getSearchFacets
+      summary: "the same summary across every company; ?scope= narrows"
       x-required-role: viewer
       security:
         - session: []

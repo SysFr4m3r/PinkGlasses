@@ -120,12 +120,41 @@ func (s *Server) searchGlobal(w http.ResponseWriter, r *http.Request) {
 			scopeID = &id
 		}
 	}
-	results, err := s.st.SearchGlobal(r.Context(), scopeID, compiled.Where, compiled.Args, 300)
+	results, err := s.st.SearchGlobal(r.Context(), scopeID, compiled.Where, compiled.Args, 500)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, results)
+}
+
+// searchFacets summarizes what a query matches — counts per product, port,
+// technology, title and status — for one company or, on the global route, all.
+func (s *Server) searchFacets(w http.ResponseWriter, r *http.Request) {
+	compiled, err := search.Compile(r.URL.Query().Get("q"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "query error: "+err.Error())
+		return
+	}
+	var scopeID *uuid.UUID
+	if v := chi.URLParam(r, "scopeID"); v != "" {
+		id, err := uuid.Parse(v)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "bad scope id")
+			return
+		}
+		scopeID = &id
+	} else if v := r.URL.Query().Get("scope"); v != "" {
+		if id, err := uuid.Parse(v); err == nil {
+			scopeID = &id
+		}
+	}
+	facets, err := s.st.SearchFacets(r.Context(), scopeID, compiled.Where, compiled.Args)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, facets)
 }
 
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +168,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "query error: "+err.Error())
 		return
 	}
-	results, err := s.st.Search(r.Context(), scopeID, compiled.Where, compiled.Args, 200)
+	results, err := s.st.Search(r.Context(), scopeID, compiled.Where, compiled.Args, 500)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

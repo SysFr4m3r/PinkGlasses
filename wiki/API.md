@@ -161,15 +161,20 @@ Runs a schedule starts carry `trigger: "scheduled"`.
 | `GET /hosts/{ipID}` | viewer | everything about one address: `{host, names, services, findings}`. Each name carries `history` (one entry per run that resolved it) and `also_resolved_to`; each service carries `history` (one entry per run that port-scanned the address), the latest banner/HTTP/TLS, technologies, and cookie **names** |
 | `GET /hosts/{ipID}/services` | viewer | open ports only |
 | `GET /services/{serviceID}/screenshot` | viewer | `image/png`, the most recent capture; `?host=` picks one virtual host's capture, otherwise the address-level one with any host's as fallback |
-| `GET /scopes/{scopeID}/search` | viewer | `?q=` in the query language, one company |
+| `GET /scopes/{scopeID}/search` | viewer | `?q=` in the query language, one company; one row per service per site (virtual host), `host` says which |
+| `GET /scopes/{scopeID}/search/facets` | viewer | `?q=` — what the query matched, summarized: `{services, sites, products, ports, techs, titles, statuses}`, each a list of `{value, count}` (count of services), top 15 |
 | `GET /search` | viewer | `?q=` across every company; `?scope=` narrows |
+| `GET /search/facets` | viewer | the same summary across every company; `?scope=` narrows |
 
-**Query language.** Terms are `field:value`, joined with `AND` / `OR`, free text
-searches banners and titles. Fields: `port`, `proto`, `ip`, `domain`, `country`,
-`cloud`, `asn`, `product`, `version`, `tech`, `cookie`, `status`, `title`,
-`cert.expires`, `new`, `severity`, `company`/`scope`. Numeric fields take `>=`
-and friends; `cookie:webvpn*` matches cookie names by prefix — names only,
-never values.
+**Query language.** Terms are `field:value`, joined with `AND` / `OR`; free text
+searches banners, titles and products. Fields: `port`, `proto`, `ip`, `domain`,
+`site`/`host` (the virtual host a row is about), `country`, `cloud`, `asn`,
+`product`, `version`, `tech`, `cookie`, `status`, `title`, `cert.expires`, `new`,
+`severity`, `company`/`scope`. Numeric fields take `>=` and friends. `*` is a
+wildcard anywhere in a value (`product:nginx*`, `title:*login*`); `field:*` means
+the field has a value (`product:*` is every port whose product is known); a bare
+`*` matches everything, which with the facets is how to read the whole inventory.
+`cookie:webvpn*` matches cookie names by prefix — names only, never values.
 
 ## Findings and alerts
 
