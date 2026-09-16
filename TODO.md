@@ -777,3 +777,5 @@ tasks at all; probing by the first resolving name as well would close that.
       Open link per path. Findings now carry `evidence` in the API (path, host, status).
       Verified on telebot.lanet.ua's address: two paths by name (301, 200) and two by address
       (403), each with an Open link; Open on each site and "Open by address" on the port.
+
+- [x] 24.7 **Sort arrows on the Discovered paths table**, the same as Hosts and Findings. Site orders by name then port, Status numerically, Last seen by time.

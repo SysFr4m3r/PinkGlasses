@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, HostService, HostVhost, Finding } from "../api";
-import { Spinner } from "../components/ui";
+import { Spinner, useSort, SortTh } from "../components/ui";
 import { ScreenshotButton } from "../components/Screenshot";
 import { DotStrip, PresenceBadge } from "../components/DotStrip";
 
@@ -384,7 +384,8 @@ function DiscoveredPaths({ findings, services, addr }: { findings: Finding[]; se
     const site = ev.host || addr;
     const path = ev.path || f.title.replace(/^Discovered path: /, "").replace(/ on .*$/, "");
     return { f, port, site, path, status: ev.status, url: siteURL(site, port, path), byAddress: !ev.host };
-  }).sort((a, b) => a.site.localeCompare(b.site) || a.port - b.port || a.path.localeCompare(b.path));
+  });
+  const { sorted, sort, toggle } = useSort(rows, { key: "site", dir: "asc" }, pathSortValue);
   const [open, setOpen] = useState(rows.length <= 8);
   const statusClass = (s?: number | string) => {
     const n = Number(s);
@@ -405,11 +406,14 @@ function DiscoveredPaths({ findings, services, addr }: { findings: Finding[]; se
         <div className="table-wrap">
           <table>
             <thead><tr>
-              <th>Site</th><th>Path</th><th>Status</th>
-              <th title="One dot per run that looked. Hover for the date.">History</th><th>Last seen</th><th></th>
+              <SortTh k="site" sort={sort} onSort={toggle}>Site</SortTh>
+              <SortTh k="path" sort={sort} onSort={toggle}>Path</SortTh>
+              <SortTh k="status" sort={sort} onSort={toggle}>Status</SortTh>
+              <th title="One dot per run that looked. Hover for the date.">History</th>
+              <SortTh k="last_seen" sort={sort} onSort={toggle}>Last seen</SortTh><th></th>
             </tr></thead>
             <tbody>
-              {rows.map(({ f, site, port, path, status, url, byAddress }) => (
+              {sorted.map(({ f, site, port, path, status, url, byAddress }) => (
                 <tr key={f.id}>
                   <td className="mono">
                     {site}{(port !== 80 && port !== 443) ? `:${port}` : ""}
@@ -428,4 +432,16 @@ function DiscoveredPaths({ findings, services, addr }: { findings: Finding[]; se
       )}
     </>
   );
+}
+
+type PathRow = { f: Finding; port: number; site: string; path: string; status?: number | string; url: string; byAddress: boolean };
+// Site orders by name then port; status numerically; dates by time.
+function pathSortValue(r: PathRow, key: string): unknown {
+  switch (key) {
+    case "site": return `${r.site} ${String(r.port).padStart(5, "0")}`;
+    case "path": return r.path;
+    case "status": return r.status === undefined || r.status === null ? null : Number(r.status);
+    case "last_seen": return new Date(r.f.last_seen);
+    default: return null;
+  }
 }
