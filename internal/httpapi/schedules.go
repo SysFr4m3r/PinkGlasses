@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,8 @@ type scheduleInput struct {
 	ProfileID   *string           `json:"profile_id"`
 	Params      map[string]string `json:"params"`
 	WordlistIDs []string          `json:"wordlist_ids"`
+	// Targets narrows each run; absent keeps the current choice, [] means all.
+	Targets []string `json:"targets"`
 }
 
 // maxEveryHours is a leap year: the longest cadence the dialog offers is yearly.
@@ -106,6 +109,14 @@ func (in scheduleInput) apply(sc *store.Schedule) *exitErr {
 			return &exitErr{http.StatusBadRequest, "invalid scan parameter: " + err.Error()}
 		}
 		sc.Params = clean
+	}
+	if in.Targets != nil {
+		sc.Targets = []string{}
+		for _, t := range in.Targets {
+			if t = strings.TrimSpace(t); t != "" {
+				sc.Targets = append(sc.Targets, t)
+			}
+		}
 	}
 	if in.WordlistIDs != nil {
 		sc.WordlistIDs = []uuid.UUID{}

@@ -104,6 +104,9 @@ type RerunSpec struct {
 	VPNConfigID *uuid.UUID
 	PoolID      *uuid.UUID
 	Workers     int
+	// Targets are the values the run covered, so a rerun covers the same
+	// set rather than whatever the company holds now.
+	Targets []string
 }
 
 // RerunSpec reads the launch choices back off a run.
@@ -114,10 +117,11 @@ func (s *Store) RerunSpec(ctx context.Context, id uuid.UUID) (RerunSpec, error) 
 	err := s.Pool.QueryRow(ctx, `
 		SELECT r.scope_id, r.profile, r.profile_id, r.params, r.pool_id,
 		       f.run_id IS NOT NULL, f.vpn_config_id, COALESCE(f.workers, 0),
-		       COALESCE((SELECT array_agg(wordlist_id) FROM run_wordlist WHERE run_id=r.id), '{}')
+		       COALESCE((SELECT array_agg(wordlist_id) FROM run_wordlist WHERE run_id=r.id), '{}'),
+		       COALESCE((SELECT array_agg(value ORDER BY value) FROM run_target WHERE run_id=r.id), '{}')
 		FROM scan_run r LEFT JOIN run_fleet f ON f.run_id = r.id
 		WHERE r.id=$1`, id).Scan(&sp.ScopeID, &sp.Profile, &sp.ProfileID, &raw, &sp.PoolID,
-		&hadFleet, &sp.VPNConfigID, &sp.Workers, &sp.WordlistIDs)
+		&hadFleet, &sp.VPNConfigID, &sp.Workers, &sp.WordlistIDs, &sp.Targets)
 	if err != nil {
 		return sp, err
 	}

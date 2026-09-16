@@ -106,7 +106,7 @@ asset route is under a scope.
 | `POST /runs/{runID}/cancel` | operator | stop: unfinished tasks are cancelled, the run ends as `cancelled`; works on a paused run too |
 | `POST /runs/{runID}/pause` | operator | hold a running run: nothing more is leased, tasks in flight finish, its own fleet stays up; 409 unless `running` |
 | `POST /runs/{runID}/resume` | operator | continue a paused run; 409 unless `paused` |
-| `POST /runs/{runID}/rerun` | operator | start a new run with this one's profile, parameters, wordlists and exit, through the same checks as a fresh start; 201 with the new run |
+| `POST /runs/{runID}/rerun` | operator | start a new run with this one's targets, profile, parameters, wordlists and exit, through the same checks as a fresh start; 201 with the new run |
 
 **Starting a run:**
 
@@ -143,7 +143,7 @@ started, so a slow run does not drift the cadence.
 | Route | Role | Purpose |
 |---|---|---|
 | `GET /scopes/{scopeID}/schedules` | viewer | `[{profile, exit, vpn_config_id, pool_id, worker_count, every_hours, enabled, next_run_at, last_run_id, last_run_at, last_error, profile_id, params, wordlist_ids}]` |
-| `POST /scopes/{scopeID}/schedules` | operator | `{profile, exit, vpn_config_id \| pool_id, worker_count, every_hours, start_at, profile_id, params, wordlist_ids, enabled}` — `every_hours` 1…8784 repeats from `start_at` (default now); `0` runs once at `start_at`, then disables itself |
+| `POST /scopes/{scopeID}/schedules` | operator | `{profile, targets, exit, vpn_config_id \| pool_id, worker_count, every_hours, start_at, profile_id, params, wordlist_ids, enabled}` — `targets` narrows each run to those values, empty is every non-excluded target at the time — `every_hours` 1…8784 repeats from `start_at` (default now); `0` runs once at `start_at`, then disables itself |
 | `PATCH /schedules/{scheduleID}` | operator | any of the same fields; disabling stops it without losing it; `start_at` moves the next run |
 | `DELETE /schedules/{scheduleID}` | operator | |
 | `PATCH /scopes/{scopeID}` | operator | `{default_exit, default_vpn_config_id, default_pool_id}` — the exit the launch dialog pre-selects |

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ReactNode, useEffect, useRef, useState, createContext, useContext, useCallback, useMemo, type CSSProperties } from "react";
 
 /* ---------- Modal ---------- */
@@ -128,14 +129,18 @@ export function InfoDot({ title, children }: { title?: string; children: ReactNo
 
 /* ---------- Small primitives ---------- */
 
-export function Stat({ n, label, hint }: { n: ReactNode; label: string; hint?: string }) {
-  return (
-    <div className="card">
-      <div className="l">{label}</div>
-      <div className="n">{n ?? "—"}</div>
-      {hint && <div className="muted" style={{ fontSize: 12 }}>{hint}</div>}
-    </div>
-  );
+/** A number tile. With `to`, the whole tile is a link and says so on hover. */
+export function Stat({ n, label, hint, to, title }: {
+  n: ReactNode; label: string; hint?: string; to?: string; title?: string;
+}) {
+  const body = <>
+    <div className="l">{label}{to && <span className="stat-go" aria-hidden="true">›</span>}</div>
+    <div className="n">{n ?? "—"}</div>
+    {hint && <div className="muted" style={{ fontSize: 12 }}>{hint}</div>}
+  </>;
+  return to
+    ? <Link to={to} className="card card-link" title={title}>{body}</Link>
+    : <div className="card">{body}</div>;
 }
 
 export function Badge({ status }: { status: string }) {

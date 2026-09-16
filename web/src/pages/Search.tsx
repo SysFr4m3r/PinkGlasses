@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, SearchResult, SearchFacets, Facet } from "../api";
 import { Spinner } from "../components/ui";
 
@@ -21,12 +22,21 @@ const EXAMPLES = [
 // products, ports, technologies, titles and statuses behind it — and clicking
 // one narrows the query by that value.
 export default function Search({ scopeID }: { scopeID: string }) {
-  const [q, setQ] = useState("*");
+  // ?q= runs a query on arrival, so another page can hand over to Search
+  // with the results already showing — the Dashboard's Services tile does.
+  const [sp] = useSearchParams();
+  const [q, setQ] = useState(sp.get("q") ?? "*");
   const [rows, setRows] = useState<SearchResult[] | null>(null);
   const [facets, setFacets] = useState<SearchFacets | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [global, setGlobal] = useState(false);
+
+  useEffect(() => {
+    const initial = sp.get("q");
+    if (initial) run(initial, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeID]);
 
   async function run(query = q, g = global) {
     setBusy(true); setErr("");

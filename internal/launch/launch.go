@@ -374,7 +374,8 @@ func (l *Launcher) Due(ctx context.Context) {
 			continue
 		}
 		o := Options{
-			Profile: sc.Profile, All: true, Exit: sc.Exit, WorkerCount: sc.WorkerCount,
+			Profile: sc.Profile, All: len(sc.Targets) == 0, Targets: sc.Targets,
+			Exit: sc.Exit, WorkerCount: sc.WorkerCount,
 			Params: sc.Params, Trigger: "scheduled",
 		}
 		if sc.ProfileID != nil {

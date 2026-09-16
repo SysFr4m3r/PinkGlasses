@@ -242,7 +242,8 @@ func (s *Server) rerunRun(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "run not found")
 		return
 	}
-	o := launch.Options{Profile: sp.Profile, All: true, Params: sp.Params, Exit: sp.Exit, WorkerCount: sp.Workers, Trigger: "manual"}
+	o := launch.Options{Profile: sp.Profile, All: len(sp.Targets) == 0, Targets: sp.Targets,
+		Params: sp.Params, Exit: sp.Exit, WorkerCount: sp.Workers, Trigger: "manual"}
 	if sp.ProfileID != nil {
 		o.ProfileID = sp.ProfileID.String()
 	}

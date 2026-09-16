@@ -130,7 +130,8 @@ docker compose up --build -d      # postgres, minio, migrate, api, gateway, sche
 ```
 
 The bundled local worker enrols itself, is auto-approved, and appears under
-**Workers → Local workers**. Add a scope, add a target, then start a scan from **Runs**.
+**Workers → Local workers**. Add a company, then **Runs → + New scan**: the dialog is
+where targets are added and where you choose which of them a scan covers.
 
 A good first target is `scanme.nmap.org`, which Nmap's authors publish for exactly this
 purpose. Add it as an **active** target (port scanning is refused otherwise) and a
@@ -486,6 +487,10 @@ read as "did not find".
 
 ## Search
 
+The Dashboard's **Services** number is a shortcut here: it opens Search with `product:*`
+already run, so the summary below shows every service the company exposes, by product,
+port and technology, in one click.
+
 **Search** is a Shodan-style query bar over the inventory of one company, or with
 **Global search** over every company at once. Terms are `field:value` joined with
 `AND` / `OR`; free text searches banners, titles and products. Fields: `port`, `proto`,
@@ -593,8 +598,12 @@ the small list baked into the worker image.
 ## Scheduled scans
 
 **Runs → + New scan → When.** The same dialog starts a scan now, once at a time
-you pick, or on a repeat — and whatever it runs carries the profile, exit and
-customized settings chosen in that dialog. *Now* is a run. *Once* is a single
+you pick, or on a repeat — and whatever it runs carries the targets, profile, exit
+and customized settings chosen in that dialog. *What to scan* lists the company's
+targets with a checkbox each, all on by default, and has the *Add targets* form
+(moved here from the Dashboard, which keeps the table and Remove); a schedule
+remembers the targets it was given and covers exactly those on every run, while one
+left at "every target" also picks up targets added later. *Now* is a run. *Once* is a single
 run started for you at that time (overnight, after a maintenance window). *Repeat*
 offers hourly, daily, weekly, every 30 or 90 days, yearly, or a custom number of
 hours, with the first run within a minute or at a time you set.

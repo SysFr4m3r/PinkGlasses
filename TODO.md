@@ -739,10 +739,18 @@ tasks at all; probing by the first resolving name as well would close that.
 
 ## Phase 24 — Choose what to scan; jump from numbers to the search
 
-- [ ] 24.1 **Choose what to scan in the Start-a-scan dialog.** The dialog lists the
+- [x] 24.1 **Choose what to scan in the Start-a-scan dialog.** The dialog lists the
       company's targets with a checkbox each (all on by default) and lets you add new
       targets right there — the *Add targets* form moves here from the Dashboard, which
       keeps the table and Remove. The choice applies to a run now, a one-off and a repeat,
       so a schedule remembers which targets it covers.
-- [ ] 24.2 **Dashboard → Search.** The Services number on the Dashboard opens Search with
-      `product:*` already run, exactly as if you had gone there and clicked it.
+      Done 2026-09-16: migration 00030 (`scan_schedule.targets`), `launch.Due` and rerun honour
+      the set (a rerun covers the run's own targets, not "all"). Verified: a schedule made with
+      two of three targets stored them, `[]` reset it to all, a patch without the field kept
+      it; a run over one target and its rerun both covered exactly that target; the Dashboard's
+      Add targets lands in the open dialog, unticking a target drops the count and the inline
+      form adds one.
+- [x] 24.2 **Dashboard → Search.** The Services number on the Dashboard opens Search with
+      `product:*` already run, exactly as if you had gone there and clicked it. Search runs
+      `?q=` on arrival; verified: the tile lands on `/search?q=product:*` with 48 services
+      across 38 sites summarized.
