@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,25 +19,71 @@ import (
 )
 
 // Ingestor writes observations for a run.
+//
+// One of these is built per gateway and shared by every /agent/v1/results
+// request, so everything on it is touched concurrently.
 type Ingestor struct {
 	st    *store.Store
-	scope map[uuid.UUID]uuid.UUID // runID -> scopeID cache
+	scope *scopeCache // runID -> scopeID
 }
 
 // New builds an Ingestor.
 func New(st *store.Store) *Ingestor {
-	return &Ingestor{st: st, scope: map[uuid.UUID]uuid.UUID{}}
+	return &Ingestor{st: st, scope: newScopeCache()}
+}
+
+// maxScopeCache bounds the cache. The gateway is never told that a run has
+// finished — the scheduler owns that — so without a ceiling this keeps one
+// entry per run for as long as the process lives. A miss costs one indexed
+// read, so dropping the whole map is cheaper than tracking ages.
+const maxScopeCache = 4096
+
+// scopeCache remembers which company a run belongs to, so ingesting a batch
+// does not re-read the run row every time.
+//
+// It is locked because it is shared. A worker dispatches each job in its own
+// goroutine and each one posts its own results, so a single worker at the
+// default concurrency of 8 already has eight requests in here at once. Left
+// unguarded the Go runtime does not merely corrupt the map, it throws — and
+// `concurrent map writes` is fatal rather than recoverable, so one collision
+// took the whole gateway down and every worker's control channel with it.
+type scopeCache struct {
+	mu sync.RWMutex
+	m  map[uuid.UUID]uuid.UUID
+}
+
+func newScopeCache() *scopeCache {
+	return &scopeCache{m: map[uuid.UUID]uuid.UUID{}}
+}
+
+func (c *scopeCache) get(runID uuid.UUID) (uuid.UUID, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	id, ok := c.m[runID]
+	return id, ok
+}
+
+func (c *scopeCache) put(runID, scopeID uuid.UUID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.m) >= maxScopeCache {
+		c.m = make(map[uuid.UUID]uuid.UUID, maxScopeCache)
+	}
+	c.m[runID] = scopeID
 }
 
 func (in *Ingestor) scopeOf(ctx context.Context, runID uuid.UUID) (uuid.UUID, error) {
-	if id, ok := in.scope[runID]; ok {
+	if id, ok := in.scope.get(runID); ok {
 		return id, nil
 	}
 	run, err := in.st.GetRun(ctx, runID)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	in.scope[runID] = run.ScopeID
+	// Two requests for the same new run both miss and both land here. That is
+	// harmless — they carry the same scope id — so this takes the simpler path
+	// over single-flighting the read.
+	in.scope.put(runID, run.ScopeID)
 	return run.ScopeID, nil
 }
 
