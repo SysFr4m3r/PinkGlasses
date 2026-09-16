@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
@@ -94,6 +95,12 @@ func isPrivateAddr(s string) bool {
 // Routes returns the gateway HTTP handler.
 func (g *Gateway) Routes() http.Handler {
 	r := chi.NewRouter()
+	// The api has had this since it was written; the gateway never did, so a
+	// panic in a handler here closed one worker's connection and logged
+	// nothing. It would not have caught the scope-cache race — a runtime throw
+	// is not recoverable — but everything short of that is worth a 500 and a
+	// line in the log rather than a silent hangup.
+	r.Use(middleware.Recoverer)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	r.Get("/install.sh", g.installScript)
 	r.Route("/agent/v1", func(r chi.Router) {
