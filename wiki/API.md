@@ -162,7 +162,7 @@ Runs a schedule starts carry `trigger: "scheduled"`.
 | `GET /hosts/{ipID}` | viewer | everything about one address: `{host, names, services, findings}`. Each name carries `history` (one entry per run that resolved it) and `also_resolved_to`; each service carries `history` (one entry per run that port-scanned the address), the latest banner/HTTP/TLS, technologies, and cookie **names** |
 | `GET /hosts/{ipID}/services` | viewer | open ports only |
 | `GET /services/{serviceID}/screenshot` | viewer | `image/png`, the most recent capture; `?host=` picks one virtual host's capture, otherwise the address-level one with any host's as fallback |
-| `GET /scopes/{scopeID}/search` | viewer | `?q=` in the query language, one company; one row per service per site (virtual host), `host` says which |
+| `GET /scopes/{scopeID}/search` | viewer | `?q=` in the query language, one company; one row per service per site (virtual host), `host` says which, `ip_id` is the host page's id |
 | `GET /scopes/{scopeID}/search/facets` | viewer | `?q=` — what the query matched, summarized: `{services, sites, products, ports, techs, titles, statuses}`, each a list of `{value, count}` (count of services), top 15 |
 | `GET /search` | viewer | `?q=` across every company; `?scope=` narrows |
 | `GET /search/facets` | viewer | the same summary across every company; `?scope=` narrows |
@@ -181,7 +181,7 @@ the field has a value (`product:*` is every port whose product is known); a bare
 
 | Route | Role | Purpose |
 |---|---|---|
-| `GET /scopes/{scopeID}/findings` | viewer | with per-run `history`, `presence` (active/gone) and `gone_since` |
+| `GET /scopes/{scopeID}/findings` | viewer | with per-run `history`, `presence` (active/gone), `gone_since` and `evidence` (a discovered path's `path`, `host` and `status`; a nuclei match's URL) |
 | `PATCH /findings/{findingID}` | operator | `{status}`: `open`, `acknowledged`, `resolved`, `accepted_risk` |
 | `GET /scopes/{scopeID}/notifications` | viewer | `{channels, events}` — the second lists the event kinds a channel may subscribe to |
 | `POST /scopes/{scopeID}/notifications` | operator | `{name, kind: slack\|webhook, url, events, min_severity}` |

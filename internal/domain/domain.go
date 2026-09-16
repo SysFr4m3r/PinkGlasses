@@ -230,11 +230,14 @@ type Finding struct {
 	// finding — a run that executed the stage which produces its kind against
 	// its host — whether or not it did. Presence is derived from it: "active"
 	// when the latest such run observed the finding, otherwise "gone".
-	History     []FindingRun `json:"history,omitempty"`
-	Presence    string       `json:"presence,omitempty"`
-	SeenIn      int          `json:"seen_in"`
-	CoveredRuns int          `json:"covered_runs"`
-	GoneSince   *time.Time   `json:"gone_since,omitempty"`
+	History []FindingRun `json:"history,omitempty"`
+	// Evidence is what the stage recorded with the finding: for a discovered
+	// path its path, host and response status; for a nuclei match the URL.
+	Evidence    map[string]any `json:"evidence,omitempty"`
+	Presence    string         `json:"presence,omitempty"`
+	SeenIn      int            `json:"seen_in"`
+	CoveredRuns int            `json:"covered_runs"`
+	GoneSince   *time.Time     `json:"gone_since,omitempty"`
 }
 
 // FindingRun is one run's verdict on a finding: it looked, and it did or did

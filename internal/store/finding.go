@@ -96,7 +96,7 @@ func (s *Store) RecordFindingObservation(ctx context.Context, findingID, runID u
 func (s *Store) ListFindings(ctx context.Context, scopeID uuid.UUID, status, severity string) ([]domain.Finding, error) {
 	rows, err := s.Pool.Query(ctx, `
 		SELECT f.id, f.scope_id, f.asset_kind, f.asset_id, f.kind, f.severity, f.title, f.status,
-		       f.first_seen, f.last_seen, COALESCE(h.hist, '[]'::jsonb)
+		       f.first_seen, f.last_seen, COALESCE(h.hist, '[]'::jsonb), f.evidence
 		FROM finding f
 		`+findingHistorySQL+`
 		WHERE f.scope_id=$1 AND ($2='' OR f.status=$2) AND ($3='' OR f.severity=$3)
@@ -123,12 +123,13 @@ func (s *Store) ListFindings(ctx context.Context, scopeID uuid.UUID, status, sev
 // history JSON, and derives presence.
 func scanFindingWithHistory(rows pgx.Rows) (domain.Finding, error) {
 	var f domain.Finding
-	var hist []byte
+	var hist, ev []byte
 	if err := rows.Scan(&f.ID, &f.ScopeID, &f.AssetKind, &f.AssetID, &f.Kind,
-		&f.Severity, &f.Title, &f.Status, &f.FirstSeen, &f.LastSeen, &hist); err != nil {
+		&f.Severity, &f.Title, &f.Status, &f.FirstSeen, &f.LastSeen, &hist, &ev); err != nil {
 		return f, err
 	}
 	_ = json.Unmarshal(hist, &f.History)
+	_ = json.Unmarshal(ev, &f.Evidence)
 	if f.History == nil {
 		f.History = []domain.FindingRun{}
 	}

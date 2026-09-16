@@ -706,7 +706,7 @@ func (s *Store) HostDetail(ctx context.Context, ipID uuid.UUID) (HostDetailResul
 	// being asked here.
 	findRows, err := s.Pool.Query(ctx, `
 		SELECT f.id, f.scope_id, f.asset_kind, f.asset_id, f.kind, f.severity,
-		       f.title, f.status, f.first_seen, f.last_seen, COALESCE(h.hist, '[]'::jsonb)
+		       f.title, f.status, f.first_seen, f.last_seen, COALESCE(h.hist, '[]'::jsonb), f.evidence
 		FROM finding f
 		`+findingHistorySQL+`
 		WHERE (f.asset_kind='ip' AND f.asset_id=$1)

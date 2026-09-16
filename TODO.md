@@ -767,3 +767,13 @@ tasks at all; probing by the first resolving name as well would close that.
       count got a fleet of 1 (`workers_auto`), came up through the VPN with gateway + 1
       worker and tore down on stop; a schedule without a count reads 0; 9 is refused; the
       rerun spec of an auto-sized run is Auto again.
+
+- [x] 24.4 **Search → host.** A row in Search opens that host's detail page (new tab; the IP is
+      a real link too). Rows carry `ip_id`.
+- [x] 24.5 **Open the site.** On a host page, every web site found (each name on a port, and
+      the address itself) has an Open button that opens its URL in a new tab.
+- [x] 24.6 **Discovered paths on the host page.** Content-discovery findings get their own
+      collapsible section: a Status column (the response code) instead of Presence, and an
+      Open link per path. Findings now carry `evidence` in the API (path, host, status).
+      Verified on telebot.lanet.ua's address: two paths by name (301, 200) and two by address
+      (403), each with an Open link; Open on each site and "Open by address" on the port.

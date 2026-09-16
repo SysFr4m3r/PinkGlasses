@@ -576,7 +576,7 @@ paths:
   /api/v1/scopes/{scopeID}/search:
     get:
       operationId: getScopesByScopeIDSearch
-      summary: "?q= in the query language, one company; one row per service per site (virtual host), host says which"
+      summary: "?q= in the query language, one company; one row per service per site (virtual host), host says which, ip_id is the host page's id"
       x-required-role: viewer
       parameters:
         - {name: scopeID, in: path, required: true, schema: {type: string}}
@@ -644,7 +644,7 @@ paths:
   /api/v1/scopes/{scopeID}/findings:
     get:
       operationId: getScopesByScopeIDFindings
-      summary: "with per-run history, presence (active/gone) and gone_since"
+      summary: "with per-run history, presence (active/gone), gone_since and evidence (a discovered path's path, host and status; a nuclei match's URL)"
       x-required-role: viewer
       parameters:
         - {name: scopeID, in: path, required: true, schema: {type: string}}

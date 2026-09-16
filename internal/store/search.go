@@ -9,10 +9,12 @@ import (
 // SearchResult is one service row returned by a search query.
 type SearchResult struct {
 	ServiceID uuid.UUID `json:"service_id"`
-	ScopeID   uuid.UUID `json:"scope_id"`
-	Company   string    `json:"company"`
-	IP        string    `json:"ip"`
-	Port      int       `json:"port"`
+	// IPID is the host page's id for this row's address.
+	IPID    uuid.UUID `json:"ip_id"`
+	ScopeID uuid.UUID `json:"scope_id"`
+	Company string    `json:"company"`
+	IP      string    `json:"ip"`
+	Port    int       `json:"port"`
 	// Host is the virtual host this row is about; "" is the address itself.
 	// One service answers differently per name, so a search sees a row per
 	// site and says which one matched.
@@ -142,7 +144,7 @@ func (s *Store) SearchGlobal(ctx context.Context, scopeID *uuid.UUID, whereSQL s
 	full := append(append([]any{}, args...), scopeID, limit)
 
 	q := `
-		SELECT DISTINCT sv.id, sc.id, sc.name, host(ip.addr), sv.port, so.host, so.product, so.version,
+		SELECT DISTINCT sv.id, ip.id, sc.id, sc.name, host(ip.addr), sv.port, so.host, so.product, so.version,
 		       (so.http->>'title'),
 		       COALESCE(NULLIF(so.host,''), (SELECT d.name FROM domain_ip di JOIN domain d ON d.id=di.domain_id
 		        WHERE di.ip_id=ip.id ORDER BY d.name LIMIT 1))` + searchView + `
@@ -159,7 +161,7 @@ func (s *Store) SearchGlobal(ctx context.Context, scopeID *uuid.UUID, whereSQL s
 	var out []SearchResult
 	for rows.Next() {
 		var r SearchResult
-		if err := rows.Scan(&r.ServiceID, &r.ScopeID, &r.Company, &r.IP, &r.Port, &r.Host,
+		if err := rows.Scan(&r.ServiceID, &r.IPID, &r.ScopeID, &r.Company, &r.IP, &r.Port, &r.Host,
 			&r.Product, &r.Version, &r.Title, &r.Domain); err != nil {
 			return nil, err
 		}
@@ -181,7 +183,7 @@ func (s *Store) Search(ctx context.Context, scopeID uuid.UUID, whereSQL string, 
 	full = append(full, scopeID, limit)
 
 	q := `
-		SELECT DISTINCT sv.id, host(ip.addr), sv.port, so.host, so.product, so.version,
+		SELECT DISTINCT sv.id, ip.id, host(ip.addr), sv.port, so.host, so.product, so.version,
 		       (so.http->>'title'),
 		       COALESCE(NULLIF(so.host,''), (SELECT d.name FROM domain_ip di JOIN domain d ON d.id=di.domain_id
 		        WHERE di.ip_id=ip.id ORDER BY d.name LIMIT 1))` + searchView + `
@@ -197,7 +199,7 @@ func (s *Store) Search(ctx context.Context, scopeID uuid.UUID, whereSQL string, 
 	var out []SearchResult
 	for rows.Next() {
 		var r SearchResult
-		if err := rows.Scan(&r.ServiceID, &r.IP, &r.Port, &r.Host, &r.Product, &r.Version, &r.Title, &r.Domain); err != nil {
+		if err := rows.Scan(&r.ServiceID, &r.IPID, &r.IP, &r.Port, &r.Host, &r.Product, &r.Version, &r.Title, &r.Domain); err != nil {
 			return nil, err
 		}
 		out = append(out, r)

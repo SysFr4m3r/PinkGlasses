@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { api, HostService, HostVhost } from "../api";
+import { api, HostService, HostVhost, Finding } from "../api";
 import { Spinner } from "../components/ui";
 import { ScreenshotButton } from "../components/Screenshot";
 import { DotStrip, PresenceBadge } from "../components/DotStrip";
@@ -120,12 +121,14 @@ export default function Host() {
           active authorization.
         </div>
       ) : (
-        services.map((sv) => <ServiceCard key={sv.id} sv={sv} />)
+        services.map((sv) => <ServiceCard key={sv.id} sv={sv} addr={h.addr} />)
       )}
 
+      <DiscoveredPaths findings={findings.filter((f) => f.kind === "content_discovery")} services={services} addr={h.addr} />
+
       <div className="section-title">Findings</div>
-      {findings.length === 0 ? (
-        <div className="empty">No findings for this host.</div>
+      {findings.filter((f) => f.kind !== "content_discovery").length === 0 ? (
+        <div className="empty">No findings for this host{findings.length ? " beyond the discovered paths above" : ""}.</div>
       ) : (
         <div className="table-wrap">
           <table>
@@ -134,7 +137,7 @@ export default function Host() {
               <th title="One dot per run that looked. Hover for the date.">History</th><th>Last seen</th>
             </tr></thead>
             <tbody>
-              {findings.map((f) => (
+              {findings.filter((f) => f.kind !== "content_discovery").map((f) => (
                 <tr key={f.id}>
                   <td><span className={"sev-" + f.severity}>{f.severity}</span></td>
                   <td className="wrap">{f.title}</td>
@@ -157,7 +160,7 @@ export default function Host() {
  * every one of them is rendered as text by React — never as markup
  * (architecture.md §10.3).
  */
-function ServiceCard({ sv }: { sv: HostService }) {
+function ServiceCard({ sv, addr }: { sv: HostService; addr: string }) {
   const http = sv.http ?? null;
   // Defensive against a malformed document: only a plain object, and only its
   // string values, are rendered — an object child would take the page down.
@@ -185,6 +188,7 @@ function ServiceCard({ sv }: { sv: HostService }) {
         </span>
         {product && <span>{product}</span>}
         {http?.status !== undefined && <span className="pill">HTTP {http.status}</span>}
+        {http?.status !== undefined && <OpenLink href={siteURL(addr, sv.port)} label="Open by address" />}
         <span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>
           {sv.observed_at
             ? `observed ${new Date(sv.observed_at).toLocaleString()}`
@@ -306,6 +310,7 @@ function VhostRow({ sv, v }: { sv: HostService; v: HostVhost }) {
             observed {new Date(v.observed_at).toLocaleString()}
           </span>
         )}
+        <OpenLink href={siteURL(v.host, sv.port)} />
         {v.has_screenshot && (
           <ScreenshotButton serviceID={sv.id} host={v.host} title={v.host} />
         )}
@@ -337,5 +342,82 @@ function VhostRow({ sv, v }: { sv: HostService; v: HostVhost }) {
         </details>
       )}
     </div>
+  );
+}
+
+// siteURL builds the address of a web site found on a port: https for the
+// TLS ports, the default port left off. Opened in a new tab with no opener,
+// since the page it lands on is the target's, not ours.
+function siteURL(host: string, port: number, path = "/"): string {
+  const scheme = port === 443 || port === 8443 ? "https" : "http";
+  const suffix = (scheme === "https" && port === 443) || (scheme === "http" && port === 80) ? "" : `:${port}`;
+  return `${scheme}://${host}${suffix}${path.startsWith("/") ? path : "/" + path}`;
+}
+
+function OpenLink({ href, label = "Open" }: { href: string; label?: string }) {
+  return (
+    <a className="btn-link" href={href} target="_blank" rel="noopener noreferrer" title={href}
+       onClick={(e) => e.stopPropagation()}>↗ {label}</a>
+  );
+}
+
+/**
+ * Paths the directory search found, apart from the other findings: they are
+ * many, informational, and read as a list of URLs rather than as issues. The
+ * response status stands where Presence would — that is what a path is about —
+ * and every row opens. Collapsed by default once there are more than a few.
+ */
+function DiscoveredPaths({ findings, services, addr }: { findings: Finding[]; services: HostService[]; addr: string }) {
+  if (findings.length === 0) return null;
+  const portOf = (serviceID: string) => services.find((s) => s.id === serviceID)?.port ?? 80;
+  const rows = findings.map((f) => {
+    const ev = (f.evidence ?? {}) as { path?: string; host?: string; status?: number | string };
+    const port = portOf(f.asset_id);
+    const site = ev.host || addr;
+    const path = ev.path || f.title.replace(/^Discovered path: /, "").replace(/ on .*$/, "");
+    return { f, port, site, path, status: ev.status, url: siteURL(site, port, path), byAddress: !ev.host };
+  }).sort((a, b) => a.site.localeCompare(b.site) || a.port - b.port || a.path.localeCompare(b.path));
+  const [open, setOpen] = useState(rows.length <= 8);
+  const statusClass = (s?: number | string) => {
+    const n = Number(s);
+    return n >= 500 ? "sev-high" : n >= 400 ? "muted" : n >= 300 ? "" : "sev-info";
+  };
+  return (
+    <>
+      <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button className="ghost sm chev-btn" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          <span className={"chev" + (open ? " open" : "")} aria-hidden="true" />
+          Discovered paths
+        </button>
+        <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>
+          {rows.length} path{rows.length === 1 ? "" : "s"} found by the directory search, with the status each answered.
+        </span>
+      </div>
+      {open && (
+        <div className="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Site</th><th>Path</th><th>Status</th>
+              <th title="One dot per run that looked. Hover for the date.">History</th><th>Last seen</th><th></th>
+            </tr></thead>
+            <tbody>
+              {rows.map(({ f, site, port, path, status, url, byAddress }) => (
+                <tr key={f.id}>
+                  <td className="mono">
+                    {site}{(port !== 80 && port !== 443) ? `:${port}` : ""}
+                    {byAddress && <span className="muted" style={{ fontSize: 11 }}> · by address</span>}
+                  </td>
+                  <td className="mono wrap">{path}</td>
+                  <td><span className={"mono " + statusClass(status)}>{status ?? "—"}</span></td>
+                  <td><DotStrip history={f.history ?? []} /></td>
+                  <td className="muted">{new Date(f.last_seen).toLocaleDateString()}</td>
+                  <td style={{ textAlign: "right" }}><OpenLink href={url} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }

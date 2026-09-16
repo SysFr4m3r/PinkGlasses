@@ -66,7 +66,7 @@ export default function Search({ scopeID }: { scopeID: string }) {
           <h2>Search</h2>
           <div className="sub">
             {global ? "Querying every company's inventory, Shodan-style." : "Querying the current company."}
-            {" "}One row per site: a port that serves several names is listed once per name.
+            {" "}One row per site: a port that serves several names is listed once per name. Click a row for the host.
           </div>
         </div>
       </div>
@@ -122,7 +122,10 @@ export default function Search({ scopeID }: { scopeID: string }) {
               </tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.service_id + (r.host ?? "")}>
+                  <tr key={r.service_id + (r.host ?? "")}
+                      style={{ cursor: r.ip_id ? "pointer" : "default" }}
+                      title={r.ip_id ? "Open host details in a new tab" : undefined}
+                      onClick={() => r.ip_id && window.open(`/host/${r.ip_id}`, "_blank", "noopener")}>
                     {global && <td>{r.company ?? "—"}</td>}
                     <td className="mono">
                       {r.host
@@ -131,7 +134,11 @@ export default function Search({ scopeID }: { scopeID: string }) {
                             {r.domain ?? "—"}{r.domain && <span style={{ fontSize: 11 }}> · by address</span>}
                           </span>}
                     </td>
-                    <td className="mono">{r.ip}</td>
+                    <td className="mono">
+                      {r.ip_id
+                        ? <a href={`/host/${r.ip_id}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.ip}</a>
+                        : r.ip}
+                    </td>
                     <td className="mono">{r.port}</td>
                     <td>{r.product ?? "—"}</td>
                     <td className="mono">{r.version ?? "—"}</td>

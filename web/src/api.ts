@@ -103,6 +103,8 @@ export interface Finding {
   severity: string; title: string; status: string; first_seen: string; last_seen: string;
   /** Every completed run that could have seen this finding, oldest first. */
   history?: FindingRun[] | null;
+  /** What the stage recorded: a discovered path's path, host and status; a nuclei match's URL. */
+  evidence?: Record<string, unknown> | null;
   /** "active" if the latest covering run observed it, else "gone". */
   presence?: "active" | "gone";
   seen_in?: number; covered_runs?: number; gone_since?: string | null;
@@ -213,7 +215,7 @@ export interface SearchFacets {
   products: Facet[]; ports: Facet[]; techs: Facet[]; titles: Facet[]; statuses: Facet[];
 }
 export interface SearchResult {
-  service_id: string; scope_id?: string; company?: string;
+  service_id: string; ip_id?: string; scope_id?: string; company?: string;
   /** The virtual host this row is about; "" is the address itself. */
   host?: string;
   ip: string; port: number; product?: string | null;

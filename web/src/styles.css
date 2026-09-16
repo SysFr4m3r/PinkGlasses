@@ -129,6 +129,8 @@ th.sortable:hover { color: var(--fg); }
 .facet-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: .12; pointer-events: none; }
 .facet-label { position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .facet-n { position: relative; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.btn-link { font-size: 12px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); text-decoration: none; white-space: nowrap; }
+.btn-link:hover { border-color: var(--accent); color: var(--accent); }
 .vhost { margin-top: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; }
 .sev-critical { color: var(--crit); font-weight: 600; } .sev-high { color: var(--high); font-weight: 600; }
 .sev-medium { color: var(--med); } .sev-low { color: var(--low); } .sev-info { color: var(--muted); }
