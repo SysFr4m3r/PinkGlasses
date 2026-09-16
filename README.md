@@ -599,10 +599,11 @@ the small list baked into the worker image.
 
 **The target list lives on the Dashboard.** *+ Add targets* takes domains, IPs or CIDRs one
 per line, with optional tags and the active-scanning authorization. Each row has *Edit*,
-which is the same form for one target — fix the host or range itself in place (the kind
-is detected again; a duplicate of another target is refused), change its tags, tick or
-untick the authorization for active scanning (recorded with your name and the time) — and
-*Remove*. What earlier scans discovered stays in the inventory whatever you change.
+which is the same form: fix the host or range itself in place (the kind is detected again;
+a duplicate of another target is refused), change its tags, tick or untick the
+authorization for active scanning (recorded with your name and the time). Its box takes
+several lines too — the first is this target, any further lines are added as new targets
+with the same tags and authorization. And *Remove*. What earlier scans discovered stays in the inventory whatever you change.
 
 **Runs → + New scan → When.** The same dialog starts a scan now, once at a time
 you pick, or on a repeat — and whatever it runs carries the targets, profile, exit

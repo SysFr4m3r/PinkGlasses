@@ -88,29 +88,40 @@ export default function Dashboard({ scopeID }: { scopeID: string }) {
 }
 
 /**
- * Edit a target — the same three things as when it was added: the host or
- * range, its tags, and whether active scanning is authorized. Nothing about
- * how a scan runs belongs here; that is the Start-a-scan dialog.
+ * Edit a target — the same form as adding: the host or range, tags, and
+ * whether active scanning is authorized. The box takes several lines, as on
+ * add: the first replaces this target, the rest are added as new targets with
+ * the same tags and authorization.
  */
 function EditTarget({ scopeID, target, onClose, onDone }: {
   scopeID: string; target: Target; onClose: () => void; onDone: () => void;
 }) {
   const toast = useToast();
-  const [value, setValue] = useState(target.value);
+  const [text, setText] = useState(target.value);
   const [active, setActive] = useState(target.mode === "active" && !!target.authorized_by);
   const [tags, setTags] = useState((target.tags ?? []).join(", "));
   const [busy, setBusy] = useState(false);
+  const values = text.split(/[\s,]+/).map((v) => v.trim()).filter(Boolean);
+  const [first, ...more] = values;
 
   async function save() {
     setBusy(true);
     try {
+      const tagList = tags.split(/[\s,]+/).filter(Boolean);
       await api.patchTarget(scopeID, target.id, {
-        ...(value.trim() !== target.value ? { value: value.trim() } : {}),
+        ...(first !== target.value ? { value: first } : {}),
         mode: active ? "active" : "passive_only",
         authorize: active,
-        tags: tags.split(/[\s,]+/).filter(Boolean),
+        tags: tagList,
       });
-      toast("ok", `${value.trim()} updated`);
+      if (more.length) {
+        await api.addTarget(scopeID, {
+          values: more, mode: active ? "active" : "passive_only", authorize: active, tags: tagList,
+        });
+      }
+      toast("ok", more.length
+        ? `${first} updated, ${more.length} target${more.length === 1 ? "" : "s"} added`
+        : `${first} updated`);
       onDone(); onClose();
     } catch (e) {
       toast("err", String(e).replace(/^Error:\s*/, ""));
@@ -124,13 +135,19 @@ function EditTarget({ scopeID, target, onClose, onDone }: {
       title={`Edit ${target.value}`} open onClose={onClose}
       footer={<>
         <button className="ghost" onClick={onClose}>Cancel</button>
-        <button onClick={save} disabled={busy || !value.trim()}>{busy ? "Saving…" : "Save"}</button>
+        <button onClick={save} disabled={busy || !values.length}>
+          {busy ? "Saving…" : more.length ? `Save and add ${more.length}` : "Save"}
+        </button>
       </>}
     >
       <div className="field">
-        <label>Domain, IP or CIDR</label>
-        <input className="mono" value={value} onChange={(e) => setValue(e.target.value)} style={{ width: "100%" }} />
-        <div className="hint">The kind is detected automatically. What earlier scans found stays in the inventory.</div>
+        <label>Domains, IPs or CIDRs</label>
+        <textarea rows={5} style={{ width: "100%" }} className="mono" value={text} onChange={(e) => setText(e.target.value)}
+          placeholder={"example.com\nshop.example.com\n203.0.113.0/24"} />
+        <div className="hint">
+          One per line, or comma-separated; the kind is detected automatically. The first line is this
+          target; any further lines are added as new targets with the same tags and authorization.
+        </div>
       </div>
       <div className="field">
         <label>Tags (optional)</label>
