@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -267,6 +268,62 @@ func (s *Server) rerunRun(w http.ResponseWriter, r *http.Request) {
 	}
 	s.auditReq(r, "run.rerun", run.ID.String(), map[string]any{"of": id.String(), "profile": run.Profile})
 	writeJSON(w, http.StatusCreated, run)
+}
+
+// deleteRun removes a finished run: its tasks, targets, observations, fleet
+// record and change events through the foreign keys, and its screenshots and
+// raw output from object storage. History that came from the run goes with it.
+// A run still going is refused — stop it first — and so is one whose fleet is
+// still coming down, since the containers must be gone before the record is.
+func (s *Server) deleteRun(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "runID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad run id")
+		return
+	}
+	run, err := s.st.GetRun(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "run not found")
+		return
+	}
+	switch run.Status {
+	case domain.RunCompleted, domain.RunFailed, domain.RunCancelled:
+	default:
+		writeErr(w, http.StatusConflict, "the run is still "+string(run.Status)+"; stop it before deleting it")
+		return
+	}
+	if f, ok, _ := s.st.GetRunFleet(r.Context(), id); ok && (f.Status == "requested" || f.Status == "up") {
+		writeErr(w, http.StatusConflict, "the run's own workers are still being removed; try again in a moment")
+		return
+	}
+	keys, err := s.st.RunArtifactKeys(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok, err := s.st.DeleteRun(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !ok {
+		writeErr(w, http.StatusNotFound, "run not found")
+		return
+	}
+	// Artifacts go after the rows: a key nothing points at any more is only
+	// waste, while a row pointing at a missing object would be a broken page.
+	removed, failed := 0, 0
+	for _, k := range keys {
+		if err := s.obj.Delete(r.Context(), k); err != nil {
+			failed++
+			slog.Warn("could not remove a deleted run's artifact", "run", id, "key", k, "err", err)
+			continue
+		}
+		removed++
+	}
+	s.auditReq(r, "run.delete", id.String(), map[string]any{
+		"status": string(run.Status), "profile": run.Profile, "artifacts_removed": removed, "artifacts_failed": failed})
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "artifacts_removed": removed, "artifacts_failed": failed})
 }
 
 func (s *Server) cancelRun(w http.ResponseWriter, r *http.Request) {

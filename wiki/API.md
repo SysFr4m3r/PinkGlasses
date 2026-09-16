@@ -107,6 +107,7 @@ asset route is under a scope.
 | `POST /runs/{runID}/cancel` | operator | stop: unfinished tasks are cancelled, the run ends as `cancelled`; works on a paused run too |
 | `POST /runs/{runID}/pause` | operator | hold a running run: nothing more is leased, tasks in flight finish, its own fleet stays up; 409 unless `running` |
 | `POST /runs/{runID}/resume` | operator | continue a paused run; 409 unless `paused` |
+| `DELETE /runs/{runID}` | operator | delete a finished run: tasks, targets, observations, fleet record and change events go with it, and its screenshots and raw output are removed from object storage — history that came from the run disappears. 409 while the run is going (stop it first) or its fleet is still being removed; answers `{deleted, artifacts_removed, artifacts_failed}` |
 | `POST /runs/{runID}/rerun` | operator | start a new run with this one's targets, profile, parameters, wordlists and exit, through the same checks as a fresh start; 201 with the new run |
 
 **Starting a run:**

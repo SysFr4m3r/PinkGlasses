@@ -714,7 +714,10 @@ work, so 5/9 can become 5/12 without anything being wrong.
 running scan: no further task is handed to any worker, the tasks already in flight finish
 and report, and the run's own workers and VPN gateway stay up so *Resume* continues at
 once. *Stop* ends it; unfinished tasks are cancelled and the run's containers come down.
-A finished, failed or stopped run offers *Rerun*: a new run with the same profile,
+A finished, failed or stopped run offers *Delete*, which removes it with everything it
+recorded — tasks, per-host observations, screenshots, and the history dots it contributed;
+hosts and findings other runs also saw stay. A run still going must be stopped first. It
+also offers *Rerun*: a new run with the same profile,
 settings, wordlists and exit, through the same checks as a fresh start — so a rerun whose
 VPN configuration has since been removed is refused with that reason rather than started
 from somewhere else. A paused run still counts as "going" for a schedule, which skips its

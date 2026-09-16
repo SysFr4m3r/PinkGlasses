@@ -779,3 +779,13 @@ tasks at all; probing by the first resolving name as well would close that.
       (403), each with an Open link; Open on each site and "Open by address" on the port.
 
 - [x] 24.7 **Sort arrows on the Discovered paths table**, the same as Hosts and Findings. Site orders by name then port, Status numerically, Last seen by time.
+
+- [x] 24.8 **Delete a run.** A finished run (completed, failed or stopped) can be deleted
+      from the Runs table: its tasks, targets, observations and fleet record go with it,
+      its screenshots are removed from object storage, and history dots that came from it
+      disappear. A run still going must be stopped first; a fleet still being torn down
+      makes the delete wait.
+      Done 2026-09-16: DELETE /runs/{id}; every table keyed to a run already cascades, and
+      the run's screenshot and raw-output keys are removed from object storage through a
+      presigned DELETE (live test against MinIO). Verified: 409 while running, 200 on the
+      stopped run with tasks, targets and wordlist links gone, 404 afterwards, audited.

@@ -6,10 +6,12 @@
 package obj
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -29,6 +31,36 @@ func New(cfg config.S3) *Store { return &Store{cfg: cfg} }
 func (s *Store) PresignPut(key string, expiry time.Duration, now time.Time) (string, error) {
 	return s.presign("PUT", key, expiry, now)
 }
+
+// PresignDelete returns a URL that removes an artifact, valid for expiry.
+func (s *Store) PresignDelete(key string, expiry time.Duration, now time.Time) (string, error) {
+	return s.presign("DELETE", key, expiry, now)
+}
+
+// Delete removes one artifact. An object that is already gone is not an
+// error: the caller is cleaning up after a run, and what matters is that the
+// key no longer resolves.
+func (s *Store) Delete(ctx context.Context, key string) error {
+	u, err := s.PresignDelete(key, time.Minute, time.Now())
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := deleteClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 && resp.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("delete %s: %s", key, resp.Status)
+	}
+	return nil
+}
+
+var deleteClient = &http.Client{Timeout: 20 * time.Second}
 
 // PresignGet returns a URL to download an artifact, valid for expiry.
 func (s *Store) PresignGet(key string, expiry time.Duration, now time.Time) (string, error) {

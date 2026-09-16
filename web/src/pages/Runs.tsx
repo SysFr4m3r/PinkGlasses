@@ -103,6 +103,7 @@ export default function Runs({ scopeID }: { scopeID: string }) {
 function RunControls({ run, onChange }: { run: Run; onChange: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const act = (label: string, fn: () => Promise<unknown>, done: string) => (e: MouseEvent) => {
     e.stopPropagation();
     setBusy(true);
@@ -128,6 +129,32 @@ function RunControls({ run, onChange }: { run: Run; onChange: () => void }) {
       {!live && (
         <button className="ghost sm" disabled={busy} title="Start a new run with the same profile, settings, wordlists and exit"
           onClick={act("Rerun", () => api.rerunRun(run.id), "Scan started again with the same settings")}>Rerun</button>
+      )}
+      {!live && (
+        <button className="ghost sm" disabled={busy} title="Delete this run and everything it recorded"
+          onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}>Delete</button>
+      )}
+      {confirmDelete && (
+        <span onClick={(e) => e.stopPropagation()}>
+          <Modal
+            title="Delete this run?" open onClose={() => setConfirmDelete(false)}
+            footer={<>
+              <button className="ghost" onClick={() => setConfirmDelete(false)}>Keep it</button>
+              <button className="danger" disabled={busy}
+                onClick={(e) => { setConfirmDelete(false); act("Delete", () => api.deleteRun(run.id), "Run deleted")(e); }}>
+                Delete run
+              </button>
+            </>}
+          >
+            <p style={{ marginTop: 0 }}>
+              The run from <strong>{new Date(run.created_at).toLocaleString()}</strong> ({run.profile}, {run.status})
+              is removed with everything it recorded: its tasks, what it observed on each host,
+              its screenshots, and the history dots it contributed. Hosts and findings that other
+              runs also saw stay.
+            </p>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>This cannot be undone.</p>
+          </Modal>
+        </span>
       )}
     </span>
   );

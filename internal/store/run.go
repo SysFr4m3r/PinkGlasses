@@ -69,6 +69,42 @@ func (s *Store) SetRunStatus(ctx context.Context, id uuid.UUID, status domain.Ru
 	return err
 }
 
+// RunArtifactKeys lists the object-storage keys a run's observations point at
+// — screenshots and raw tool output — so a delete can remove them. Keys that
+// never reached the store (the worker records a note instead) are left out.
+func (s *Store) RunArtifactKeys(ctx context.Context, runID uuid.UUID) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT k FROM (
+		  SELECT screenshot_key AS k FROM service_observation WHERE run_id=$1
+		  UNION SELECT raw_key FROM service_observation WHERE run_id=$1
+		) x WHERE COALESCE(k,'') <> '' AND k NOT LIKE '%(not uploaded%'`, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	return keys, rows.Err()
+}
+
+// DeleteRun removes a finished run and everything keyed to it — tasks,
+// targets, observations, the fleet record, change events — through the
+// foreign keys. A schedule that pointed at it as its last run keeps going with
+// that pointer cleared. Returns false when no row matched.
+func (s *Store) DeleteRun(ctx context.Context, runID uuid.UUID) (bool, error) {
+	ct, err := s.Pool.Exec(ctx, `DELETE FROM scan_run WHERE id=$1`, runID)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
 // PauseRun holds a running run. Leasing already requires status='running', so
 // from the next lease onward no worker is handed one of its tasks; the ones in
 // flight finish and report as usual. Returns false when the run was not running.

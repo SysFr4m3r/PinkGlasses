@@ -145,6 +145,7 @@ func (s *Server) Routes() http.Handler {
 				o.Post("/runs/{runID}/pause", s.pauseRun)
 				o.Post("/runs/{runID}/resume", s.resumeRun)
 				o.Post("/runs/{runID}/rerun", s.rerunRun)
+				o.Delete("/runs/{runID}", s.deleteRun)
 				// Recurring scans, and the company default exit they use.
 				o.Post("/scopes/{scopeID}/schedules", s.createSchedule)
 				o.Patch("/schedules/{scheduleID}", s.patchSchedule)
