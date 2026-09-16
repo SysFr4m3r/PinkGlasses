@@ -103,6 +103,7 @@ asset route is under a scope.
 | `GET /runs/{runID}/targets` | viewer | per-target status, counters, skip reasons |
 | `GET /runs/{runID}/activity` | viewer | `{tasks, stages, workers}` — what is running where, right now |
 | `GET /runs/{runID}/diff` | viewer | change events this run produced: `{kind, asset_kind, asset_id, before, after, created_at}` |
+| `GET /runs/{runID}/footprint` | viewer | what the run owns, as counts: `{tasks, targets, service_observations, screenshots, resolution_records, finding_observations, change_events, has_fleet}` — what deleting it removes |
 | `GET /runs/{runID}/events` | viewer | server-sent events stream; see the note under *Known gaps* |
 | `POST /runs/{runID}/cancel` | operator | stop: unfinished tasks are cancelled, the run ends as `cancelled`; works on a paused run too |
 | `POST /runs/{runID}/pause` | operator | hold a running run: nothing more is leased, tasks in flight finish, its own fleet stays up; 409 unless `running` |

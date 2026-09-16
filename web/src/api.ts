@@ -384,6 +384,9 @@ export const api = {
   pauseRun: (id: string) => req(`/runs/${id}/pause`, { method: "POST" }),
   resumeRun: (id: string) => req(`/runs/${id}/resume`, { method: "POST" }),
   rerunRun: (id: string) => req<Run>(`/runs/${id}/rerun`, { method: "POST" }),
+  runFootprint: (id: string) =>
+    req<{ tasks: number; targets: number; service_observations: number; screenshots: number;
+          resolution_records: number; finding_observations: number; change_events: number; has_fleet: boolean }>(`/runs/${id}/footprint`),
   deleteRun: (id: string) =>
     req<{ deleted: boolean; artifacts_removed: number; artifacts_failed: number }>(`/runs/${id}`, { method: "DELETE" }),
   schedules: (s: string) => req<Schedule[] | null>(`/scopes/${s}/schedules`).then((x) => x ?? []),

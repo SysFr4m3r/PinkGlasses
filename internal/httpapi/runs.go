@@ -270,6 +270,25 @@ func (s *Server) rerunRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, run)
 }
 
+// runFootprint says what a run owns, so the delete confirmation can list it.
+func (s *Server) runFootprint(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "runID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad run id")
+		return
+	}
+	if _, err := s.st.GetRun(r.Context(), id); err != nil {
+		writeErr(w, http.StatusNotFound, "run not found")
+		return
+	}
+	f, err := s.st.RunFootprint(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, f)
+}
+
 // deleteRun removes a finished run: its tasks, targets, observations, fleet
 // record and change events through the foreign keys, and its screenshots and
 // raw output from object storage. History that came from the run goes with it.

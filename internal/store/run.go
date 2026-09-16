@@ -93,6 +93,36 @@ func (s *Store) RunArtifactKeys(ctx context.Context, runID uuid.UUID) ([]string,
 	return keys, rows.Err()
 }
 
+// RunFootprint counts what a run owns — what a delete would take with it.
+type RunFootprint struct {
+	Tasks               int  `json:"tasks"`
+	Targets             int  `json:"targets"`
+	ServiceObservations int  `json:"service_observations"`
+	Screenshots         int  `json:"screenshots"`
+	ResolutionRecords   int  `json:"resolution_records"`
+	FindingObservations int  `json:"finding_observations"`
+	ChangeEvents        int  `json:"change_events"`
+	HasFleet            bool `json:"has_fleet"`
+}
+
+// RunFootprint reports what deleting the run would remove.
+func (s *Store) RunFootprint(ctx context.Context, runID uuid.UUID) (RunFootprint, error) {
+	var f RunFootprint
+	err := s.Pool.QueryRow(ctx, `
+		SELECT (SELECT count(*) FROM scan_task WHERE run_id=$1),
+		       (SELECT count(*) FROM run_target WHERE run_id=$1),
+		       (SELECT count(*) FROM service_observation WHERE run_id=$1),
+		       (SELECT count(*) FROM service_observation WHERE run_id=$1
+		          AND COALESCE(screenshot_key,'') <> '' AND screenshot_key NOT LIKE '%(not uploaded%'),
+		       (SELECT count(*) FROM domain_ip_observation WHERE run_id=$1),
+		       (SELECT count(*) FROM finding_observation WHERE run_id=$1),
+		       (SELECT count(*) FROM change_event WHERE run_id=$1),
+		       EXISTS (SELECT 1 FROM run_fleet WHERE run_id=$1)`, runID).
+		Scan(&f.Tasks, &f.Targets, &f.ServiceObservations, &f.Screenshots,
+			&f.ResolutionRecords, &f.FindingObservations, &f.ChangeEvents, &f.HasFleet)
+	return f, err
+}
+
 // DeleteRun removes a finished run and everything keyed to it — tasks,
 // targets, observations, the fleet record, change events — through the
 // foreign keys. A schedule that pointed at it as its last run keeps going with

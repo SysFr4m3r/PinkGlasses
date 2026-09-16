@@ -464,6 +464,24 @@ paths:
         "403": {$ref: "#/components/responses/e403"}
         "404": {$ref: "#/components/responses/e404"}
         "409": {$ref: "#/components/responses/e409"}
+  /api/v1/runs/{runID}/footprint:
+    get:
+      operationId: getRunsByRunIDFootprint
+      summary: "what the run owns, as counts: {tasks, targets, service_observations, screenshots, resolution_records, finding_observations, change_events, has_fleet} — what deleting it removes"
+      x-required-role: viewer
+      parameters:
+        - {name: runID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
   /api/v1/scopes/{scopeID}/domains:
     get:
       operationId: getScopesByScopeIDDomains

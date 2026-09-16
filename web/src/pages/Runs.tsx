@@ -148,11 +148,15 @@ function RunControls({ run, onChange }: { run: Run; onChange: () => void }) {
           >
             <p style={{ marginTop: 0 }}>
               The run from <strong>{new Date(run.created_at).toLocaleString()}</strong> ({run.profile}, {run.status})
-              is removed with everything it recorded: its tasks, what it observed on each host,
-              its screenshots, and the history dots it contributed. Hosts and findings that other
-              runs also saw stay.
+              is removed together with everything it recorded:
             </p>
-            <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>This cannot be undone.</p>
+            <DeleteFootprint runID={run.id} />
+            <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              The hosts, names, ports and findings themselves stay in the inventory — they belong to
+              the company, and other runs may have seen them too. Only this run's record of them goes,
+              so a history dot from this run disappears and a finding only this run saw shows no
+              observations. This cannot be undone.
+            </p>
           </Modal>
         </span>
       )}
@@ -882,4 +886,26 @@ function took(start?: string | null, end?: string | null) {
   if (s < 60) return s + "s";
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}m ${s % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+/** What a run owns, listed with counts, for the delete confirmation. */
+function DeleteFootprint({ runID }: { runID: string }) {
+  const { data: f, isLoading } = useQuery({ queryKey: ["footprint", runID], queryFn: () => api.runFootprint(runID) });
+  if (isLoading || !f) return <div className="muted" style={{ fontSize: 13 }}>Counting what it recorded…</div>;
+  const n = (v: number, one: string, many: string) => `${v} ${v === 1 ? one : many}`;
+  const items: string[] = [
+    n(f.tasks, "task", "tasks") + " — what each worker did, with its results and errors",
+    n(f.targets, "target", "targets") + " covered by the run, with their per-target progress",
+    n(f.service_observations, "service observation", "service observations") + " — banners, versions, titles, headers and cookie names seen on ports, per site",
+    n(f.screenshots, "screenshot", "screenshots") + " — removed from object storage",
+    n(f.resolution_records, "resolution record", "resolution records") + " — which address each name pointed at in this run",
+    n(f.finding_observations, "finding observation", "finding observations") + " — this run's sightings of paths and nuclei matches (the history dots)",
+    n(f.change_events, "change event", "change events") + " — what the differ reported as new, changed or gone after this run",
+  ];
+  if (f.has_fleet) items.push("the record of the run's own workers and VPN gateway (the containers are already gone)");
+  return (
+    <ul style={{ margin: "6px 0 10px", paddingLeft: 20, fontSize: 13 }}>
+      {items.map((it) => <li key={it} style={{ margin: "2px 0" }}>{it}</li>)}
+    </ul>
+  );
 }

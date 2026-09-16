@@ -96,6 +96,7 @@ func (s *Server) Routes() http.Handler {
 				v.Get("/runs/{runID}/events", s.runEvents)
 				v.Get("/runs/{runID}/activity", s.runActivity)
 				v.Get("/runs/{runID}/diff", s.runDiff)
+				v.Get("/runs/{runID}/footprint", s.runFootprint)
 
 				v.Get("/scopes/{scopeID}/domains", s.listDomains)
 				v.Get("/scopes/{scopeID}/graph", s.domainGraph)
