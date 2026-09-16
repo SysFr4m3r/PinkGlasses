@@ -728,6 +728,13 @@ narrow it further.
 
 ## Develop
 
+**The wiki is mirrored from `wiki/`.** The pages under `wiki/` are the GitHub wiki: `Home.md`
+is its front page and links are by page name. A workflow copies the directory to the wiki
+on every push to `main` that touches it — after the wiki has been created once in the
+browser (repository → *Wiki* → *Create the first page*), since GitHub only makes the wiki
+repository exist then. Edit the pages here, not in the wiki, or the next sync overwrites
+the change.
+
 **CI runs the same checks on every push and pull request** (`.github/workflows/ci.yml`):
 gofmt, `go vet`, `go test -race` including the drift tests, the OpenAPI document against
 the router, the SPA build, the control-plane image build and the compose file; the worker

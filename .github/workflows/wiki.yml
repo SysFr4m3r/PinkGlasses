@@ -1,0 +1,45 @@
+# Mirror wiki/ to the repository's GitHub wiki.
+#
+# A GitHub wiki is a separate git repository, <repo>.wiki.git, that exists
+# only after the wiki has been created once in the browser (Wiki tab → Create
+# the first page). After that, every push to main that touches wiki/ replaces
+# the wiki's contents with the directory — the pages are written for it: Home.md
+# is the front page and links are by page name, [API](API).
+name: Wiki
+
+on:
+  push:
+    branches: [main]
+    paths: ['wiki/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone the wiki repository
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" /tmp/wiki 2>/tmp/clone.err; then
+            echo "::error::Could not clone ${GITHUB_REPOSITORY}.wiki.git. Create the wiki once in the browser (Wiki tab → Create the first page), then re-run this workflow."
+            cat /tmp/clone.err; exit 1
+          fi
+      - name: Replace its pages with wiki/
+        run: |
+          find /tmp/wiki -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r wiki/. /tmp/wiki/
+          cd /tmp/wiki
+          git add -A
+          if git diff --cached --quiet; then echo "wiki already current"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Sync wiki from ${GITHUB_SHA::7}"
+          git push
