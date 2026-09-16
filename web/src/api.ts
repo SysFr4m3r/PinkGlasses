@@ -45,7 +45,7 @@ export interface ApiToken {
 export interface Summary { domains: number; domains_resolving: number; ips: number; services: number; open_findings: number }
 export interface Target {
   id: string; scope_id: string; kind: string; value: string; tags: string[];
-  mode: string; authorized_by?: string | null;
+  mode: string; authorized_by?: string | null; authorized_at?: string | null;
 }
 export interface Domain {
   id: string; name: string; apex: string; is_wildcard: boolean;
@@ -303,6 +303,8 @@ export const api = {
   targets: (s: string) => req<Target[] | null>(`/scopes/${s}/targets`).then((x) => x ?? []),
   addTarget: (s: string, body: unknown) =>
     req<Target[] | null>(`/scopes/${s}/targets`, { method: "POST", body: JSON.stringify(body) }).then((x) => x ?? []),
+  patchTarget: (s: string, id: string, body: unknown) =>
+    req<Target>(`/scopes/${s}/targets/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTarget: (s: string, id: string) =>
     req<{ deleted: boolean }>(`/scopes/${s}/targets/${id}`, { method: "DELETE" }),
   domains: (s: string, q = "") => req<Domain[] | null>(`/scopes/${s}/domains?q=${encodeURIComponent(q)}`).then((x) => x ?? []),

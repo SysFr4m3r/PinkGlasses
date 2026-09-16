@@ -597,6 +597,13 @@ the small list baked into the worker image.
 
 ## Scheduled scans
 
+**Editing a target.** Each row of the Dashboard's targets table has *Edit*: change how the
+target is scanned (passive only, active, or excluded from every run), record or revoke
+the authorization for active scanning — stored with your name and the time — and set its
+tags. The value itself is the target's identity; to change it, remove the target and add
+the new one. An active target without a recorded authorization shows as *active ·
+unauthorized* and is skipped by every active stage.
+
 **Runs → + New scan → When.** The same dialog starts a scan now, once at a time
 you pick, or on a repeat — and whatever it runs carries the targets, profile, exit
 and customized settings chosen in that dialog. *What to scan* lists the company's

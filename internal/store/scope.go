@@ -2,6 +2,9 @@ package store
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -84,6 +87,40 @@ func (s *Store) AddTarget(ctx context.Context, t domain.ScopeTarget) (domain.Sco
 		t.ScopeID, t.Kind, t.Value, t.Tags, t.Mode, t.PoolID, t.AuthorizedBy, t.AuthorizedAt,
 	).Scan(&t.ID, &t.CreatedAt)
 	return t, err
+}
+
+// GetTarget returns one target of a scope.
+func (s *Store) GetTarget(ctx context.Context, scopeID, targetID uuid.UUID) (domain.ScopeTarget, bool, error) {
+	var t domain.ScopeTarget
+	err := s.Pool.QueryRow(ctx, `
+		SELECT id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at
+		FROM scope_target WHERE id=$1 AND scope_id=$2`, targetID, scopeID,
+	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return t, false, nil
+	}
+	return t, err == nil, err
+}
+
+// UpdateTarget changes a target's mode, tags and authorization record. The
+// value and kind are its identity and are not edited: that is remove and add.
+// Scoped by both ids so another company's target cannot be changed through
+// this company's route. Returns false when nothing matched.
+func (s *Store) UpdateTarget(ctx context.Context, scopeID, targetID uuid.UUID, mode domain.TargetMode, tags []string, authBy *string, authAt *time.Time) (domain.ScopeTarget, bool, error) {
+	if tags == nil {
+		tags = []string{}
+	}
+	var t domain.ScopeTarget
+	err := s.Pool.QueryRow(ctx, `
+		UPDATE scope_target SET mode=$3, tags=$4, authorized_by=$5, authorized_at=$6
+		WHERE id=$1 AND scope_id=$2
+		RETURNING id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at`,
+		targetID, scopeID, mode, tags, authBy, authAt,
+	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return t, false, nil
+	}
+	return t, err == nil, err
 }
 
 // DeleteTarget removes a target from its scope. Scoped by both ids so a

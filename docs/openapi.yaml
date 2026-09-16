@@ -917,6 +917,24 @@ paths:
         "403": {$ref: "#/components/responses/e403"}
         "404": {$ref: "#/components/responses/e404"}
         "409": {$ref: "#/components/responses/e409"}
+    patch:
+      operationId: patchScopesByScopeIDTargetsByTargetID
+      summary: "{mode, tags, authorize} — edit a target's mode and tags; authorize: true with mode: active records who authorized active scanning and when, false revokes it, and any other mode clears it. The value is the target's identity and is not edited (remove and add instead)"
+      x-required-role: operator
+      parameters:
+        - {name: scopeID, in: path, required: true, schema: {type: string}}
+        - {name: targetID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
   /api/v1/runs/{runID}/cancel:
     post:
       operationId: postRunsByRunIDCancel

@@ -60,6 +60,78 @@ func (s *Server) scopeSummary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sum)
 }
 
+// patchTarget edits a target's mode, tags and authorization. The value is the
+// target's identity and is not editable here. Authorization is explicit: a
+// switch to active carries authorize:true to be recorded as authorized; any
+// other mode clears the record, since it no longer means anything.
+func (s *Server) patchTarget(w http.ResponseWriter, r *http.Request) {
+	scopeID, err := uuid.Parse(chi.URLParam(r, "scopeID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad scope id")
+		return
+	}
+	targetID, err := uuid.Parse(chi.URLParam(r, "targetID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad target id")
+		return
+	}
+	var in struct {
+		Mode      *string  `json:"mode"`
+		Tags      []string `json:"tags"`
+		Authorize *bool    `json:"authorize"`
+	}
+	if err := readJSON(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad body")
+		return
+	}
+	cur, ok, err := s.st.GetTarget(r.Context(), scopeID, targetID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !ok {
+		writeErr(w, http.StatusNotFound, "target not found in this company")
+		return
+	}
+	mode := cur.Mode
+	if in.Mode != nil {
+		switch domain.TargetMode(*in.Mode) {
+		case domain.ModeActive, domain.ModePassiveOnly, domain.ModeExclude:
+			mode = domain.TargetMode(*in.Mode)
+		default:
+			writeErr(w, http.StatusBadRequest, "mode must be active, passive_only or exclude")
+			return
+		}
+	}
+	tags := cur.Tags
+	if in.Tags != nil {
+		tags = in.Tags
+	}
+	authBy, authAt := cur.AuthorizedBy, cur.AuthorizedAt
+	switch {
+	case mode != domain.ModeActive:
+		authBy, authAt = nil, nil
+	case in.Authorize != nil && *in.Authorize:
+		a := actor(r)
+		now := time.Now()
+		authBy, authAt = &a, &now
+	case in.Authorize != nil && !*in.Authorize:
+		authBy, authAt = nil, nil
+	}
+	t, ok, err := s.st.UpdateTarget(r.Context(), scopeID, targetID, mode, tags, authBy, authAt)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !ok {
+		writeErr(w, http.StatusNotFound, "target not found in this company")
+		return
+	}
+	s.auditReq(r, "target.update", targetID.String(), map[string]any{
+		"value": t.Value, "mode": string(t.Mode), "authorized": t.Authorized(), "tags": t.Tags})
+	writeJSON(w, http.StatusOK, t)
+}
+
 // deleteTarget takes a target out of a company. Future runs no longer cover it;
 // what earlier runs found under it stays in the inventory.
 func (s *Server) deleteTarget(w http.ResponseWriter, r *http.Request) {

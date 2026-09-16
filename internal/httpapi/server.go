@@ -135,6 +135,7 @@ func (s *Server) Routes() http.Handler {
 
 				o.Post("/scopes", s.createScope)
 				o.Post("/scopes/{scopeID}/targets", s.addTarget)
+				o.Patch("/scopes/{scopeID}/targets/{targetID}", s.patchTarget)
 				o.Delete("/scopes/{scopeID}/targets/{targetID}", s.deleteTarget)
 				o.Post("/scopes/{scopeID}/scan-profiles", s.saveScanProfile)
 				// Starting a run sends packets at somebody's infrastructure,
