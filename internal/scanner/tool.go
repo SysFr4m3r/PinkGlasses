@@ -1,8 +1,8 @@
 // Package scanner implements the worker's scan pipeline. Each stage prefers the
-// real tool (worker-pipeline.md) when its binary is present and parses its JSON
+// real tool (wiki/Worker-Pipeline.md) when its binary is present and parses its JSON
 // output; otherwise it falls back to a pure-Go implementation so the worker is
 // useful out of the box. Swapping a fallback for the linked library later is a
-// localized change (architecture.md §6.1).
+// localized change (wiki/Architecture.md §6.1).
 package scanner
 
 import (

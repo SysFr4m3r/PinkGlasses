@@ -1,6 +1,6 @@
 // Package search parses a Shodan-style query into whitelisted, parameterized
 // SQL. It never builds SQL from raw user strings: only known fields map, and
-// all values are bound parameters (architecture.md §9).
+// all values are bound parameters (wiki/Architecture.md §9).
 package search
 
 import (

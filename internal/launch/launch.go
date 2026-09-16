@@ -239,7 +239,7 @@ type exitPlan struct {
 // checkExit validates where a run's active stages will run from, and refuses
 // if that cannot be satisfied. No side effects: nothing is written until a run
 // exists to bind it to. Two exits exist; there is deliberately no "direct from
-// this host" (architecture.md §7.6).
+// this host" (wiki/Architecture.md §7.6).
 func (l *Launcher) checkExit(ctx context.Context, scopeID uuid.UUID, o Options) (*exitPlan, *Refusal) {
 	switch o.Exit {
 	case "remote":

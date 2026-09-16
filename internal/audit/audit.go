@@ -1,5 +1,5 @@
 // Package audit writes append-only audit records: who added a target, enrolled
-// a worker, triggered a run, exported data (architecture.md §10.1).
+// a worker, triggered a run, exported data (wiki/Architecture.md §10.1).
 package audit
 
 import (

@@ -64,7 +64,7 @@ func (s *Store) RedeemEnrollmentToken(ctx context.Context, hash []byte) (*uuid.U
 
 // CreateWorker inserts a worker with the given status. Remote workers land in
 // 'pending' and need human approval; local workers enrolled from inside the
-// network are created 'active' (architecture.md §7.2).
+// network are created 'active' (wiki/Architecture.md §7.2).
 func (s *Store) CreateWorker(ctx context.Context, w domain.Worker, credHash []byte, status domain.WorkerStatus) (uuid.UUID, error) {
 	tools, _ := json.Marshal(w.Tools)
 	var id uuid.UUID

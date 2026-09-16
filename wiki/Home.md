@@ -7,7 +7,7 @@ and a fleet of workers you own — including VPS boxes you enrol from the UI.
 
 This wiki covers how the scanner behaves in practice. For getting it running,
 see the [README](https://github.com/cobbbex/PinkGlasses#readme); for the design
-rationale, `architecture.md` in the repository.
+rationale, [Architecture](Architecture).
 
 ## Pages
 
@@ -69,7 +69,7 @@ in a log. A run still going when the next is due is skipped, never stacked; a
 one-off disables itself once it has started. Runs can be paused (nothing more is
 leased, in-flight tasks finish, the fleet stays up), resumed, stopped and rerun
 with the same choices. See the README's *Scheduled scans* and *Watching a scan*,
-and `architecture.md` §3.3.
+and [Architecture](Architecture) §3.3.
 
 ## Who can do what
 

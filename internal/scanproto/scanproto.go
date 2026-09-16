@@ -4,7 +4,7 @@
 // version behind still interoperate.
 //
 // Versioning: JobSchema and ResultSchema are bumped independently of the
-// application. A one-version lag is always tolerated (architecture.md §7.4).
+// application. A one-version lag is always tolerated (wiki/Architecture.md §7.4).
 package scanproto
 
 import "time"
@@ -16,7 +16,7 @@ const (
 	ProtoVersion = 2 // minimum protocol the gateway will accept
 )
 
-// Stage names the pipeline steps a worker can execute (worker-pipeline.md).
+// Stage names the pipeline steps a worker can execute (wiki/Worker-Pipeline.md).
 type Stage string
 
 const (

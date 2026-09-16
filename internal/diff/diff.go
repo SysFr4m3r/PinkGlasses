@@ -1,6 +1,6 @@
 // Package diff compares a completed run against the prior baseline and records
 // change_events. It runs only after a run is marked completed, so a partial run
-// never produces false "asset disappeared" alerts (architecture.md §3.4).
+// never produces false "asset disappeared" alerts (wiki/Architecture.md §3.4).
 package diff
 
 import (

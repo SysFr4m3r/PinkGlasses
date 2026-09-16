@@ -1,4 +1,4 @@
-# Worker image: the scan box carrying the whole toolchain (worker-pipeline.md).
+# Worker image: the scan box carrying the whole toolchain (wiki/Worker-Pipeline.md).
 #
 # The ProjectDiscovery tools are NOT compiled here — that couples us to their
 # ever-rising Go version requirement. Instead we copy the prebuilt binaries from

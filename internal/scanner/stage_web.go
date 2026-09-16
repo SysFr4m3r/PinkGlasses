@@ -39,7 +39,7 @@ func proxiedClient(px string) *http.Client {
 }
 
 // serviceProbe: httpx when present, else stdlib HTTP + TLS capture
-// (worker-pipeline.md §3 / §2 web versions).
+// (wiki/Worker-Pipeline.md §3 / §2 web versions).
 func (s *Scanner) serviceProbe(ctx context.Context, job scanproto.Job) ([]scanproto.Observation, error) {
 	ip, port := targetIPPort(job)
 	host := targetHost(job)

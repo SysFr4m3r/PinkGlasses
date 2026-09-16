@@ -26,7 +26,7 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 		WordlistIDs []string          `json:"wordlist_ids"`
 		// Exit is where the run's active stages leave from — "local" with a
 		// VPNConfigID, or "remote" with a PoolID. A passive run needs neither
-		// (architecture.md §7.6).
+		// (wiki/Architecture.md §7.6).
 		Exit        string `json:"exit"`
 		VPNConfigID string `json:"vpn_config_id"`
 		PoolID      string `json:"pool_id"`

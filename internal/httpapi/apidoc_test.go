@@ -13,7 +13,7 @@ import (
 // TestAPIDocCoversEveryRoute walks the live router and checks that every route
 // appears in wiki/API.md as a backticked `METHOD /path`.
 //
-// The previous API documentation was a design-time sketch in architecture.md
+// The previous API documentation was a design-time sketch in wiki/Architecture.md
 // that listed endpoints which never existed and omitted most of the ones that
 // did, and nothing noticed for months. A reference nobody checks against the
 // code becomes fiction; this keeps the two in step by failing the build when a

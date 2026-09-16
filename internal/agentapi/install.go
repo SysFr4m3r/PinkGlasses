@@ -5,7 +5,7 @@ const installSh = `
 #!/usr/bin/env bash
 # PinkGlasses — worker installer.
 # Enrolls this machine as a scan worker. Pull-based: the only secret is a
-# single-use, short-TTL enrollment token (architecture.md §7.1).
+# single-use, short-TTL enrollment token (wiki/Architecture.md §7.1).
 set -euo pipefail
 
 URL=""; TOKEN=""; NAME="$(hostname)"; POOL=""

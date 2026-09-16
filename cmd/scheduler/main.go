@@ -1,7 +1,7 @@
 // Command scheduler is the leader-elected control loop: it advances running
 // scan runs through the stage machine, reaps expired leases, marks stale
 // workers, runs the differ on completion, and performs periodic sweeps
-// (architecture.md §3.3).
+// (wiki/Architecture.md §3.3).
 package main
 
 import (

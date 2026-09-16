@@ -9,7 +9,7 @@ import (
 )
 
 // provisionClient talks to the isolated provisioner sidecar. The api never
-// touches the Docker socket itself (architecture.md §7.3); the one thing it
+// touches the Docker socket itself (wiki/Architecture.md §7.3); the one thing it
 // still asks for is the removal of a local worker's container when that worker
 // is deleted from the fleet page. Creating workers is the scheduler's job — a
 // run's fleet — and nobody's by hand.

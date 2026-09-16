@@ -25,25 +25,60 @@ a fleet of workers you own, including VPS boxes you enroll from the UI.
   of them.</sub>
 </p>
 
-Design docs: [`architecture.md`](architecture.md) · [`worker-pipeline.md`](worker-pipeline.md)
+Design docs: [Architecture](wiki/Architecture.md) · [Worker pipeline](wiki/Worker-Pipeline.md) · [wiki](wiki/Home.md)
 · API reference: [`wiki/API.md`](wiki/API.md) · OpenAPI: [`docs/openapi.yaml`](docs/openapi.yaml)
 · build plan: [`TODO.md`](TODO.md)
 
 ## Architecture at a glance
 
 ```
-Browser ── HTTPS ──▶ api ─────┐
-                              ├─▶ PostgreSQL (source of truth)
-Workers ── WSS/HTTPS ─▶ gateway┘         │
-   (your VPS boxes)     scheduler ◀───────┘  advances runs, reaps leases, diffs
+ Browser ──HTTPS──▶ api ──────────────────────────┐
+                    │ SSE ◀── LISTEN/NOTIFY ◀──────┤
+                                                   ▼
+ VPS workers ──WSS──▶ gateway ──ingest──▶ PostgreSQL ◀──▶ scheduler
+   (optional exit)      │                (source of truth)    │ starts runs (button or schedule),
+                        │ presigned                            │ advances the stage machine,
+                        ▼ uploads                              │ diffs, alerts, sweeps
+                      MinIO ◀── screenshots, wordlists         │
+                                                               ▼
+ standing local worker ──WSS──▶ gateway                  provisioner ── the only holder of
+   (passive stages only)                                      │           the Docker socket
+                                                              ▼ per active run
+                                                    ┌──────────────────────┐
+                                                    │ vpn-gateway (tunnel) │
+                                                    │  └ run workers ×N    │──WSS──▶ gateway
+                                                    │    share its network │
+                                                    └──────────────────────┘
+                                                      built at start, destroyed at the end
 ```
 
-- **api** — user-facing REST + SSE surface, serves the SPA.
-- **gateway** — the only internet-facing service; terminates worker control channels, leases
-  tasks, ingests **confined** results, presigns artifact uploads.
-- **scheduler** — leader-elected loop: advances the stage machine, reaps expired leases,
-  runs the differ, sweeps for stale workers / expiring certs.
-- **worker** — one box carrying the whole toolchain; connects outbound only.
+- **api** — the REST + SSE surface and the SPA. Writes go to PostgreSQL; changes made by
+  any process reach open browsers through Postgres `LISTEN/NOTIFY`, so the api never has
+  to be told what the scheduler or gateway did.
+- **gateway** — the only internet-facing service. Terminates every worker's control
+  channel, hands out task leases, ingests **confined** results (nothing a worker sends is
+  trusted as markup or as an instruction), and presigns artifact uploads to MinIO.
+- **scheduler** — the leader-elected loop. Starts runs a person or a schedule asked for,
+  advances the stage machine, asks the provisioner for a run's fleet and tears it down,
+  reaps expired leases, runs the differ and alert digests, sweeps stale workers and
+  zombie runs.
+- **provisioner** — a sidecar that alone holds the Docker socket, deliberately kept out of
+  the api and the scheduler. It speaks a fixed vocabulary — build, list, remove labelled
+  containers — so a bug in the api cannot become root on the host.
+- **workers** — the same agent in three places. The **standing local worker** ships with
+  the stack and runs only the passive stages (discovery, resolution, enrichment), which
+  talk to public sources and never to the target. An **active run gets its own fleet**: a
+  VPN gateway holding the tunnel plus N workers in its network namespace, built when the
+  run starts and destroyed when it ends, so everything sent at the target leaves through
+  the VPN. **VPS workers** you enrol are the alternative exit, leaving from their own
+  addresses. Nothing active ever leaves from the control plane's own address.
+- **PostgreSQL** is the source of truth; **MinIO** holds screenshots, wordlists and raw
+  artifacts. **migrate** runs the schema forward once at start, and every other service
+  waits for it.
+
+The full design is in the wiki: [Architecture](wiki/Architecture.md) for the components
+and their contracts, [Worker pipeline](wiki/Worker-Pipeline.md) for the tools each stage
+runs, [Where scans run from](wiki/VPN-Scanning.md) for the exits and fleets.
 
 ## Scan pipeline (per run, across many targets)
 
@@ -290,7 +325,7 @@ difference matters:
 Quarantine is also applied **automatically**: if a worker reports observations for assets
 outside the target it was assigned, the gateway quarantines it on the spot. Workers parse
 hostile content from the internet, so one turning malicious must not be able to poison the
-inventory with fabricated assets (`architecture.md` §10.4).
+inventory with fabricated assets ([Architecture](wiki/Architecture.md) §10.4).
 
 | | drain | quarantine |
 |---|---|---|
@@ -834,7 +869,7 @@ past.
 
 ## Safety & authorization
 
-This tool sends packets to real infrastructure. Read `architecture.md` §10 first.
+This tool sends packets to real infrastructure. Read [Architecture](wiki/Architecture.md) §10 first.
 
 - A target is **passive-only** unless it carries an explicit **active** authorization record.
 - CDN / shared-hosting IPs are excluded from port scanning by default.
@@ -894,7 +929,7 @@ producing nothing and writing to stderr is reported as a failure; and a batch of
 the gateway refuses is logged by both the worker that sent it and the gateway that
 rejected it, with the reason.
 
-Deliberately deferred (see `architecture.md` §14): multi-tenancy, ClickHouse analytics,
+Deliberately deferred (see [Architecture](wiki/Architecture.md) §14): multi-tenancy, ClickHouse analytics,
 SSH-push provisioning, worker auto-update, cloud-inventory connectors.
 
 Known rough edges:

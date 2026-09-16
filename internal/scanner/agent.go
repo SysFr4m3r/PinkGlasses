@@ -125,7 +125,7 @@ func NewAgent(cfg AgentConfig) *Agent {
 
 // uploadArtifact stores bytes in object storage: it asks the gateway to presign
 // a PUT and uploads directly, so artifacts never transit the gateway
-// (architecture.md §3.2). Returns the object key on success.
+// (wiki/Architecture.md §3.2). Returns the object key on success.
 func (a *Agent) uploadArtifact(ctx context.Context, key string, data []byte) (string, error) {
 	body, _ := json.Marshal(map[string]string{"key": key})
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost,
@@ -332,7 +332,7 @@ func (a *Agent) execJob(ctx context.Context, job scanproto.Job) {
 	// an ephemeral fleet inside a VPN gateway's namespace, or a pool of remote
 	// workers. Passive stages run on the standing pool and never touch the
 	// target. The worker used to raise tunnels itself; that path is gone
-	// (architecture.md §7.6).
+	// (wiki/Architecture.md §7.6).
 	obs, err := a.scanner.Run(ctx, job)
 	status := "ok"
 	var errs []string
@@ -497,7 +497,7 @@ func describeTarget(job scanproto.Job) string {
 	return ""
 }
 
-// --- capability & tool detection (worker-pipeline.md, architecture.md §6.2) ---
+// --- capability & tool detection (wiki/Worker-Pipeline.md, wiki/Architecture.md §6.2) ---
 
 // DetectCapabilities self-detects what this box can do.
 func DetectCapabilities() map[scanproto.Capability]bool {

@@ -132,7 +132,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 // user id, not the name, so what somebody did stays attached to them. The two
 // things a rename does move are what future `created_by` strings say, and which
 // account a trusted proxy's X-Forwarded-User resolves to — so a rename has to be
-// mirrored in the proxy if one is in front (architecture.md §10.2).
+// mirrored in the proxy if one is in front (wiki/Architecture.md §10.2).
 func (s *Store) UpdateUser(ctx context.Context, id uuid.UUID, username, display *string, role *auth.Role, disabled *bool) (User, error) {
 	var roleStr *string
 	if role != nil {

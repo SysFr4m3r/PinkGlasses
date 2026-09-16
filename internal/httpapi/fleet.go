@@ -25,7 +25,7 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 }
 
 // createEnrollmentToken mints a token and returns the command the user runs to
-// bring the worker up. Two flows share one mechanism (architecture.md §7.1):
+// bring the worker up. Two flows share one mechanism (wiki/Architecture.md §7.1):
 //
 //	local — a container beside the control plane. Multi-use bootstrap token,
 //	        self-enrolls, auto-approved. Scans from your own egress address.

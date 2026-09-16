@@ -1,7 +1,7 @@
 # Worker Scan Pipeline — Stages & Tooling
 
 > The ordered workflow every scan box runs, and the concrete tool behind each stage.
-> Companion to `architecture.md` §6. ProjectDiscovery (PD) tools are linked as **Go
+> Companion to [Architecture](Architecture) §6. ProjectDiscovery (PD) tools are linked as **Go
 > libraries** inside the worker binary (no subprocess, no stdout parsing); the two
 > non-PD tools are shelled out to.
 
@@ -45,7 +45,7 @@ screenshot and a directory brute don't depend on each other.
 **Where the stages run.** Stages 1 and the resolution/enrichment behind it never send a
 packet at the target and run on the standing local workers. Everything from stage 2 on
 sends traffic at the target and runs from the run's chosen exit — an ephemeral fleet
-behind a VPN gateway, or a pool of enrolled remote workers (`architecture.md` §7.6).
+behind a VPN gateway, or a pool of enrolled remote workers ([Architecture](Architecture) §7.6).
 
 **Resolution feeds stage 2 incrementally, not through a barrier.** Addresses are handed
 forward as they appear, deduplicated so a shared address behind twenty names is scanned
@@ -68,7 +68,7 @@ passive-only target are dropped here: they are enumerated and resolved, never pr
 
 **Order:** subfinder and shuffledns run in parallel, then dnsx resolves the union. dnsx is
 the gate: only names that actually resolve move downstream, and its resolved addresses are
-coalesced into port-scan batches as they arrive (`architecture.md` §4.1).
+coalesced into port-scan batches as they arrive ([Architecture](Architecture) §4.1).
 
 **shuffledns runs as its own `dns_brute` stage, one task per wordlist.** The planner fans
 out a task per (domain × wordlist), so several lists spread across workers rather than
@@ -141,7 +141,7 @@ ASM_ALLOW_PRIVATE_TARGETS=true docker compose up -d api scheduler
 
 **Order:** httpx first (it decides which host:port pairs are actually web services), then
 nuclei tech templates against only those. nuclei's broader vuln templates belong to the
-`vuln_check` stage in `architecture.md`, not here.
+`vuln_check` stage in [Architecture](Architecture), not here.
 
 ### 4 · Screenshots of web services
 
@@ -150,7 +150,7 @@ nuclei tech templates against only those. nuclei's broader vuln templates belong
 | **httpx `-screenshot`** | Headless-Chromium screenshot of each live web endpoint, from the same tool that already probed it — one HTTP session, consistent target list, no separate wiring. Requires the `browser` capability (bundled Chromium). | PD |
 
 **Order:** consumes stage 3's live-HTTP list. Runs on `browser`-capable workers only;
-boxes without Chromium skip it (`architecture.md` §6.2). Screenshots go straight to object
+boxes without Chromium skip it ([Architecture](Architecture) §6.2). Screenshots go straight to object
 storage via presigned URL — they never transit the gateway on the way in.
 
 They do on the way out: the UI reads one through `GET /api/v1/services/{id}/screenshot`,
@@ -181,7 +181,7 @@ list, marking several default picks the first by name — dispatch logs which on
 **Order:** katana and urlfinder (crawl and passive URLs, cheap, seed real paths) → gobuster/ffuf (brute, expensive).
 Directory brute is the loudest, most rate-limit-sensitive stage — it fires many requests at
 one host, so cap concurrency per target and respect the worker's per-provider rate settings
-(`architecture.md` §7.3).
+([Architecture](Architecture) §7.3).
 
 ---
 
@@ -199,7 +199,7 @@ one host, so cap concurrency per target and respect the worker's per-provider ra
 (don't port-scan CDN IPs — feeds the `is_shared` flag), **mapcidr** / **asnmap** (expand
 CIDR/ASN scope targets before scanning).
 
-### What this means for `architecture.md`
+### What this means for [Architecture](Architecture)
 
 - **Capabilities (§6.2):** stage 4 needs `browser`; stage 2's naabu SYN mode needs
   `raw_socket`. Everything else runs on any box.

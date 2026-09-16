@@ -1,6 +1,6 @@
 // Command worker is the scan box: one binary carrying the whole pipeline. It
 // connects outbound to the gateway, runs leased jobs, and posts confined
-// results. No inbound ports; works behind NAT (architecture.md §6, §8.2).
+// results. No inbound ports; works behind NAT (wiki/Architecture.md §6, §8.2).
 package main
 
 import (

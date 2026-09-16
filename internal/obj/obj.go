@@ -1,7 +1,7 @@
 // Package obj is a minimal S3/MinIO client that produces presigned PUT/GET URLs
 // using AWS Signature V4. Workers upload raw tool output and screenshots
 // directly to object storage via these URLs, so artifacts never transit the
-// gateway (architecture.md §3.2). Implemented with the stdlib to avoid pulling
+// gateway (wiki/Architecture.md §3.2). Implemented with the stdlib to avoid pulling
 // the full AWS SDK.
 package obj
 

@@ -1,7 +1,7 @@
 // Package agentapi is the agent-facing gateway: the only internet-facing
 // component. It terminates worker WebSocket control channels, leases and
 // dispatches scan tasks, ingests confined results, and issues presigned
-// artifact URLs (architecture.md §3.2, §7, §8).
+// artifact URLs (wiki/Architecture.md §3.2, §7, §8).
 package agentapi
 
 import (

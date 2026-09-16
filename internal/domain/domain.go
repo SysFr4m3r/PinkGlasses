@@ -67,7 +67,7 @@ const (
 	ModeExclude     TargetMode = "exclude"      // never touch
 )
 
-// WorkerStatus is the worker lifecycle (architecture.md §7.2).
+// WorkerStatus is the worker lifecycle (wiki/Architecture.md §7.2).
 type WorkerStatus string
 
 const (
@@ -169,7 +169,7 @@ type Worker struct {
 	LastSeenAt     *time.Time        `json:"last_seen_at,omitempty"`
 	EnrolledAt     time.Time         `json:"enrolled_at"`
 	// RunScoped marks a worker one scan brought up for itself and will destroy
-	// when it finishes (architecture.md §7.6). Worth showing: these appear and
+	// when it finishes (wiki/Architecture.md §7.6). Worth showing: these appear and
 	// vanish on their own, and they will not take anyone else's work.
 	RunScoped bool `json:"run_scoped"`
 }

@@ -77,7 +77,7 @@ func (s *Store) InsertTasks(ctx context.Context, runID uuid.UUID, specs []TaskSp
 // It is fair across run_targets: candidates are ordered by how many sibling
 // tasks of the same run_target are already in flight, so one huge domain in a
 // batch cannot starve the rest. FOR UPDATE SKIP LOCKED lets many workers claim
-// concurrently without blocking each other (architecture.md §8.1).
+// concurrently without blocking each other (wiki/Architecture.md §8.1).
 func (s *Store) LeaseTasks(ctx context.Context, workerID uuid.UUID, caps []string, poolID *uuid.UUID, limit, leaseSecs int) ([]scanproto.Job, error) {
 	rows, err := s.Pool.Query(ctx, `
 		UPDATE scan_task SET

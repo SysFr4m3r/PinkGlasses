@@ -1,7 +1,7 @@
 // Command provisioner creates and removes local worker containers on request
 // from the api. It is the only component with access to the Docker socket, and
 // it is deliberately isolated from the api for that reason (see the package doc
-// and architecture.md §7.3).
+// and wiki/Architecture.md §7.3).
 package main
 
 import (

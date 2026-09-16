@@ -1,7 +1,7 @@
 # PinkGlasses — self-hosted external attack surface monitor.
 name: pinkglasses
 
-# Self-hosted control plane + one bundled local worker (architecture.md §12).
+# Self-hosted control plane + one bundled local worker (wiki/Architecture.md §12).
 services:
   postgres:
     image: postgres:16-alpine
@@ -46,7 +46,7 @@ services:
       # Optional. Set it and a reverse proxy may assert the user with
       # X-Forwarded-User, but only alongside a matching X-Proxy-Secret. Unset,
       # header authentication is off and the app's own login is the only way in
-      # (architecture.md §10.2).
+      # (wiki/Architecture.md §10.2).
       ASM_TRUSTED_PROXY_SECRET: "${ASM_TRUSTED_PROXY_SECRET:-}"
       # Password for the `admin` account created on first boot. Empty means the
       # published default, which the UI and the startup log both complain about

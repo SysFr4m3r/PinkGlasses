@@ -8,7 +8,7 @@ import (
 
 // The committed OpenAPI document must match what the router generates. A spec
 // that drifts from the code is worse than none — it is the failure the old
-// architecture.md sketch had — so this fails the build until it is regenerated.
+// wiki/Architecture.md sketch had — so this fails the build until it is regenerated.
 func TestOpenAPIDocIsCurrent(t *testing.T) {
 	committed, err := os.ReadFile("../../docs/openapi.yaml")
 	if err != nil {

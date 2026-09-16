@@ -1,6 +1,6 @@
 // Typed client for the ASM REST API. Untrusted, attacker-controlled strings
 // (banners, HTTP titles, TLS subjects) are rendered as text by React by
-// default — never with dangerouslySetInnerHTML (architecture.md §10.3).
+// default — never with dangerouslySetInnerHTML (wiki/Architecture.md §10.3).
 
 export interface Scope {
   id: string; name: string; created_at: string;

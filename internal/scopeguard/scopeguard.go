@@ -1,5 +1,5 @@
 // Package scopeguard enforces what may be actively scanned. It runs at planning
-// time, at dispatch time, and inside the worker (architecture.md §10.1).
+// time, at dispatch time, and inside the worker (wiki/Architecture.md §10.1).
 package scopeguard
 
 import (
@@ -18,7 +18,7 @@ type Decision struct {
 
 // privateBlocks are never scanned. This is an external attack-surface monitor:
 // internal ranges are out of scope for every worker, which also closes the
-// scanner-as-SSRF hole (architecture.md §10.1).
+// scanner-as-SSRF hole (wiki/Architecture.md §10.1).
 var privateBlocks = mustPrefixes(
 	"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
 	"169.254.0.0/16", "::1/128", "fc00::/7", "fe80::/10", "0.0.0.0/8",

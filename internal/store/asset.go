@@ -14,7 +14,7 @@ import (
 
 // --- temporal upserts (used by ingest) ---
 // Every upsert advances last_seen but preserves first_seen, so the asset
-// inventory doubles as its own change history (architecture.md §5.5).
+// inventory doubles as its own change history (wiki/Architecture.md §5.5).
 
 // UpsertDomain inserts or refreshes a domain, merging discovery sources.
 func (s *Store) UpsertDomain(ctx context.Context, scopeID uuid.UUID, name, apex, source string, at time.Time) (uuid.UUID, error) {

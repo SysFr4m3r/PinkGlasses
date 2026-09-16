@@ -1,6 +1,6 @@
 // Package ingest normalizes worker observations into the temporal asset graph.
 // This is where facts become inventory: workers never write to the database and
-// never dedupe or diff — that all happens here (architecture.md §5.5, §8.4).
+// never dedupe or diff — that all happens here (wiki/Architecture.md §5.5, §8.4).
 package ingest
 
 import (
