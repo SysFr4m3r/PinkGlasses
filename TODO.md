@@ -740,10 +740,12 @@ tasks at all; probing by the first resolving name as well would close that.
 ## Phase 24 — Choose what to scan; jump from numbers to the search
 
 - [x] 24.1 **Choose what to scan in the Start-a-scan dialog.** The dialog lists the
-      company's targets with a checkbox each (all on by default) and lets you add new
-      targets right there — the *Add targets* form moves here from the Dashboard, which
-      keeps the table and Remove. The choice applies to a run now, a one-off and a repeat,
-      so a schedule remembers which targets it covers.
+      company's targets with a checkbox each (all on by default). The choice applies to a
+      run now, a one-off and a repeat, so a schedule remembers which targets it covers.
+      Revised 2026-09-16 after review: the target *list* stays on the Dashboard — add,
+      edit (the host itself, in place, plus mode, authorization and tags) and remove — and
+      the scan dialog only picks from it; the add form that had been moved into the dialog
+      went back.
       Done 2026-09-16: migration 00030 (`scan_schedule.targets`), `launch.Due` and rerun honour
       the set (a rerun covers the run's own targets, not "all"). Verified: a schedule made with
       two of three targets stored them, `[]` reset it to all, a patch without the field kept

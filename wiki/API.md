@@ -87,7 +87,7 @@ asset route is under a scope.
 | `GET /scopes/{scopeID}/summary` | viewer | dashboard counters: domains, ips, services, open_findings |
 | `GET /scopes/{scopeID}/targets` | viewer | `?tag=` filters |
 | `POST /scopes/{scopeID}/targets` | operator | `{value}` or `{values:[…]}`, `kind` (domain, cidr, ip, asn — inferred if omitted), `tags`, `mode` (`passive_only` default, `active`, `exclude`), `authorize: true` to record active authorization |
-| `PATCH /scopes/{scopeID}/targets/{targetID}` | operator | `{mode, tags, authorize}` — edit a target's mode and tags; `authorize: true` with `mode: active` records who authorized active scanning and when, `false` revokes it, and any other mode clears it. The value is the target's identity and is not edited (remove and add instead) |
+| `PATCH /scopes/{scopeID}/targets/{targetID}` | operator | `{value, mode, tags, authorize}` — edit a target in place: `value` fixes the host or range itself (kind re-detected; 409 if another target already has it), `mode` and `tags` as on add; `authorize: true` with `mode: active` records who authorized active scanning and when, `false` revokes it, and any other mode clears it |
 | `DELETE /scopes/{scopeID}/targets/{targetID}` | operator | future runs stop covering it; what earlier runs discovered under it stays in the inventory. 404 if the target is not in this company |
 
 ## Runs

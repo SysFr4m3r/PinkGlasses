@@ -1,13 +1,16 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/benlik386/pinkglasses/internal/domain"
+	"github.com/benlik386/pinkglasses/internal/store"
 )
 
 func (s *Server) createScope(w http.ResponseWriter, r *http.Request) {
@@ -60,10 +63,11 @@ func (s *Server) scopeSummary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sum)
 }
 
-// patchTarget edits a target's mode, tags and authorization. The value is the
-// target's identity and is not editable here. Authorization is explicit: a
-// switch to active carries authorize:true to be recorded as authorized; any
-// other mode clears the record, since it no longer means anything.
+// patchTarget edits a target: the host or range itself (a typo fixed in place,
+// kind re-detected), its mode, tags and authorization. Authorization is
+// explicit: a switch to active carries authorize:true to be recorded as
+// authorized; any other mode clears the record, since it no longer means
+// anything.
 func (s *Server) patchTarget(w http.ResponseWriter, r *http.Request) {
 	scopeID, err := uuid.Parse(chi.URLParam(r, "scopeID"))
 	if err != nil {
@@ -76,6 +80,7 @@ func (s *Server) patchTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
+		Value     *string  `json:"value"`
 		Mode      *string  `json:"mode"`
 		Tags      []string `json:"tags"`
 		Authorize *bool    `json:"authorize"`
@@ -92,6 +97,17 @@ func (s *Server) patchTarget(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		writeErr(w, http.StatusNotFound, "target not found in this company")
 		return
+	}
+	kind, value := cur.Kind, cur.Value
+	if in.Value != nil {
+		v := strings.TrimSpace(strings.ToLower(*in.Value))
+		if v == "" {
+			writeErr(w, http.StatusBadRequest, "value cannot be empty")
+			return
+		}
+		if v != cur.Value {
+			value, kind = v, guessKind(v)
+		}
 	}
 	mode := cur.Mode
 	if in.Mode != nil {
@@ -118,7 +134,11 @@ func (s *Server) patchTarget(w http.ResponseWriter, r *http.Request) {
 	case in.Authorize != nil && !*in.Authorize:
 		authBy, authAt = nil, nil
 	}
-	t, ok, err := s.st.UpdateTarget(r.Context(), scopeID, targetID, mode, tags, authBy, authAt)
+	t, ok, err := s.st.UpdateTarget(r.Context(), scopeID, targetID, kind, value, mode, tags, authBy, authAt)
+	if errors.Is(err, store.ErrTargetExists) {
+		writeErr(w, http.StatusConflict, err.Error())
+		return
+	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -127,8 +147,11 @@ func (s *Server) patchTarget(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "target not found in this company")
 		return
 	}
-	s.auditReq(r, "target.update", targetID.String(), map[string]any{
-		"value": t.Value, "mode": string(t.Mode), "authorized": t.Authorized(), "tags": t.Tags})
+	detail := map[string]any{"value": t.Value, "mode": string(t.Mode), "authorized": t.Authorized(), "tags": t.Tags}
+	if t.Value != cur.Value {
+		detail["was"] = cur.Value
+	}
+	s.auditReq(r, "target.update", targetID.String(), detail)
 	writeJSON(w, http.StatusOK, t)
 }
 

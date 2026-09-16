@@ -919,7 +919,7 @@ paths:
         "409": {$ref: "#/components/responses/e409"}
     patch:
       operationId: patchScopesByScopeIDTargetsByTargetID
-      summary: "{mode, tags, authorize} — edit a target's mode and tags; authorize: true with mode: active records who authorized active scanning and when, false revokes it, and any other mode clears it. The value is the target's identity and is not edited (remove and add instead)"
+      summary: "{value, mode, tags, authorize} — edit a target in place: value fixes the host or range itself (kind re-detected; 409 if another target already has it), mode and tags as on add; authorize: true with mode: active records who authorized active scanning and when, false revokes it, and any other mod…"
       x-required-role: operator
       parameters:
         - {name: scopeID, in: path, required: true, schema: {type: string}}

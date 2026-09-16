@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"time"
 
 	"github.com/google/uuid"
@@ -102,23 +103,31 @@ func (s *Store) GetTarget(ctx context.Context, scopeID, targetID uuid.UUID) (dom
 	return t, err == nil, err
 }
 
-// UpdateTarget changes a target's mode, tags and authorization record. The
-// value and kind are its identity and are not edited: that is remove and add.
-// Scoped by both ids so another company's target cannot be changed through
-// this company's route. Returns false when nothing matched.
-func (s *Store) UpdateTarget(ctx context.Context, scopeID, targetID uuid.UUID, mode domain.TargetMode, tags []string, authBy *string, authAt *time.Time) (domain.ScopeTarget, bool, error) {
+// ErrTargetExists is returned when an edit would make a target a duplicate of
+// another in the same company.
+var ErrTargetExists = errors.New("that value is already a target of this company")
+
+// UpdateTarget changes a target: its value and kind (a typo in a host is fixed
+// in place, keeping the row and its tags), its mode, tags and authorization
+// record. Scoped by both ids so another company's target cannot be changed
+// through this company's route. Returns false when nothing matched.
+func (s *Store) UpdateTarget(ctx context.Context, scopeID, targetID uuid.UUID, kind, value string, mode domain.TargetMode, tags []string, authBy *string, authAt *time.Time) (domain.ScopeTarget, bool, error) {
 	if tags == nil {
 		tags = []string{}
 	}
 	var t domain.ScopeTarget
 	err := s.Pool.QueryRow(ctx, `
-		UPDATE scope_target SET mode=$3, tags=$4, authorized_by=$5, authorized_at=$6
+		UPDATE scope_target SET kind=$3, value=$4, mode=$5, tags=$6, authorized_by=$7, authorized_at=$8
 		WHERE id=$1 AND scope_id=$2
 		RETURNING id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at`,
-		targetID, scopeID, mode, tags, authBy, authAt,
+		targetID, scopeID, kind, value, mode, tags, authBy, authAt,
 	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, false, nil
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return t, false, ErrTargetExists
 	}
 	return t, err == nil, err
 }

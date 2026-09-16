@@ -130,8 +130,8 @@ docker compose up --build -d      # postgres, minio, migrate, api, gateway, sche
 ```
 
 The bundled local worker enrols itself, is auto-approved, and appears under
-**Workers → Local workers**. Add a company, then **Runs → + New scan**: the dialog is
-where targets are added and where you choose which of them a scan covers.
+**Workers → Local workers**. Add a company, add its targets on the **Dashboard**, then
+**Runs → + New scan** and tick which of them the scan covers.
 
 A good first target is `scanme.nmap.org`, which Nmap's authors publish for exactly this
 purpose. Add it as an **active** target (port scanning is refused otherwise) and a
@@ -597,20 +597,22 @@ the small list baked into the worker image.
 
 ## Scheduled scans
 
-**Editing a target.** Each row of the Dashboard's targets table has *Edit*: change how the
-target is scanned (passive only, active, or excluded from every run), record or revoke
-the authorization for active scanning — stored with your name and the time — and set its
-tags. The value itself is the target's identity; to change it, remove the target and add
-the new one. An active target without a recorded authorization shows as *active ·
+**The target list lives on the Dashboard.** *+ Add targets* takes domains, IPs or CIDRs one
+per line, with optional tags and the active-scanning authorization. Each row has *Edit* —
+fix the host or range itself in place (the kind is detected again; a duplicate of another
+target is refused), change how it is scanned (passive only, active, or excluded from every
+run), record or revoke the authorization for active scanning, stored with your name and the
+time, and set tags — and *Remove*. What earlier scans discovered stays in the inventory
+whatever you change. An active target without a recorded authorization shows as *active ·
 unauthorized* and is skipped by every active stage.
 
 **Runs → + New scan → When.** The same dialog starts a scan now, once at a time
 you pick, or on a repeat — and whatever it runs carries the targets, profile, exit
 and customized settings chosen in that dialog. *What to scan* lists the company's
-targets with a checkbox each, all on by default, and has the *Add targets* form
-(moved here from the Dashboard, which keeps the table and Remove); a schedule
-remembers the targets it was given and covers exactly those on every run, while one
-left at "every target" also picks up targets added later. *Now* is a run. *Once* is a single
+targets with a checkbox each, all on by default — nothing about the list itself is
+edited here; that is the Dashboard. A schedule remembers the targets it was given and
+covers exactly those on every run, while one left at "every target" also picks up
+targets added later. *Now* is a run. *Once* is a single
 run started for you at that time (overnight, after a maintenance window). *Repeat*
 offers hourly, daily, weekly, every 30 or 90 days, yearly, or a custom number of
 hours, with the first run within a minute or at a time you set.

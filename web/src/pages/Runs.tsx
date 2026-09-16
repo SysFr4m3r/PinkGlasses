@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useState, type MouseEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
 import { api, Run, RunTarget, RunActivity, RunFleet, Schedule } from "../api";
 import { Badge, useToast, Modal } from "../components/ui";
 import ScanSettings from "../components/ScanSettings";
@@ -34,11 +33,8 @@ export default function Runs({ scopeID }: { scopeID: string }) {
     queryKey: ["runs", scopeID], queryFn: () => api.runs(scopeID), refetchInterval: 5000,
   });
   const [open, setOpen] = useState("");
-  // ?new=1 opens the dialog on arrival: the Dashboard's Add targets button
-  // lands here, since targets are added where they are scanned from.
-  const [sp, setSp] = useSearchParams();
-  const [launch, setLaunch] = useState(sp.get("new") === "1");
-  const closeLaunch = () => { setLaunch(false); if (sp.get("new")) setSp({}, { replace: true }); };
+  const [launch, setLaunch] = useState(false);
+  const closeLaunch = () => setLaunch(false);
 
   return (
     <div>
@@ -270,7 +266,7 @@ function LaunchModal({
   // case stays a two-click scan.
   // A scan over a scope with no targets can only fail, so the modal checks
   // first and offers the fix rather than letting the request 400.
-  const { data: targets, refetch: refetchTargets } = useQuery({
+  const { data: targets } = useQuery({
     queryKey: ["targets", scopeID], queryFn: () => api.targets(scopeID),
   });
   const usable = (targets ?? []).filter((t) => t.mode !== "exclude");
@@ -282,7 +278,6 @@ function LaunchModal({
   const toggleTarget = (v: string) => setExcluded((s) => {
     const n = new Set(s); n.has(v) ? n.delete(v) : n.add(v); return n;
   });
-  const [addOpen, setAddOpen] = useState(false);
 
   const [manual, setManual] = useState(false);
   const [params, setParams] = useState<Record<string, string>>({});
@@ -351,7 +346,6 @@ function LaunchModal({
     setManual(false);
     setWhen("now");
     setExcluded(new Set());
-    setAddOpen(false);
     onClose();
   }
 
@@ -395,7 +389,7 @@ function LaunchModal({
           <p style={{ marginTop: 0 }}>This company has no targets yet, so there is nothing to scan.</p>
           <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
             A company is a container — naming it after a domain does not add that domain.
-            Add a domain, IP or CIDR below.
+            Add a domain, IP or CIDR on the <strong>Dashboard</strong> first.
           </p>
         </div>
       ) : (
@@ -423,16 +417,6 @@ function LaunchModal({
           </div>
         </>
       )}
-      <div style={{ marginTop: 8 }}>
-        <button className="ghost sm chev-btn" onClick={() => setAddOpen((o) => !o)} aria-expanded={addOpen || usable.length === 0}>
-          <span className={"chev" + (addOpen || usable.length === 0 ? " open" : "")} aria-hidden="true" />
-          Add targets
-        </button>
-        {(addOpen || usable.length === 0) && (
-          <AddTargetsInline scopeID={scopeID} onAdded={() => { refetchTargets(); setAddOpen(false); }} />
-        )}
-      </div>
-
       {PROFILES.map((p) => (
         <label key={p.id} className="check" style={{ cursor: "pointer" }}>
           <input type="radio" name="profile" checked={profile === p.id} onChange={() => setProfile(p.id)} />
@@ -855,68 +839,4 @@ function took(start?: string | null, end?: string | null) {
   if (s < 60) return s + "s";
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}m ${s % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
-}
-
-/**
- * Add targets from inside the dialog — moved here from the Dashboard, since a
- * target is added in order to be scanned. New ones are ticked on arrival.
- */
-function AddTargetsInline({ scopeID, onAdded }: { scopeID: string; onAdded: () => void }) {
-  const toast = useToast();
-  const [text, setText] = useState("");
-  const [active, setActive] = useState(false);
-  const [tags, setTags] = useState("");
-  const [busy, setBusy] = useState(false);
-  const values = text.split(/[\s,]+/).map((v) => v.trim()).filter(Boolean);
-
-  async function save() {
-    setBusy(true);
-    try {
-      await api.addTarget(scopeID, {
-        values,
-        mode: active ? "active" : "passive_only",
-        authorize: active,
-        tags: tags.split(/[\s,]+/).filter(Boolean),
-      });
-      toast("ok", `Added ${values.length} target${values.length === 1 ? "" : "s"}`);
-      setText(""); setTags(""); setActive(false);
-      onAdded();
-    } catch (e) {
-      toast("err", String(e).replace(/^Error:\s*/, ""));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="manual-panel" style={{ marginTop: 8 }}>
-      <div className="field">
-        <label>Domains, IPs or CIDRs</label>
-        <textarea rows={3} style={{ width: "100%" }} value={text} onChange={(e) => setText(e.target.value)}
-          placeholder={"example.com\nshop.example.com\n203.0.113.0/24"} />
-        <div className="hint">One per line, or comma-separated. The kind is detected automatically.</div>
-      </div>
-      <div className="row" style={{ gap: 14, alignItems: "flex-start" }}>
-        <div className="field" style={{ flex: 1, margin: 0 }}>
-          <label>Tags (optional)</label>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="production, eu" style={{ width: "100%" }} />
-        </div>
-        <label className="check" style={{ flex: 2, margin: 0, cursor: "pointer" }}>
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          <span>
-            <strong>Authorize active scanning</strong>
-            <div className="hint" style={{ marginTop: 2 }}>
-              Unticked, the target gets passive-only discovery — nothing is sent to it. Tick it only
-              for infrastructure you are authorized to scan.
-            </div>
-          </span>
-        </label>
-      </div>
-      <div className="row" style={{ marginTop: 8 }}>
-        <button className="sm" onClick={save} disabled={busy || !values.length}>
-          {busy ? "Saving…" : `Add ${values.length || ""} target${values.length === 1 ? "" : "s"}`}
-        </button>
-      </div>
-    </div>
-  );
 }
