@@ -78,7 +78,9 @@ Design docs: [Architecture](wiki/Architecture.md) · [Worker pipeline](wiki/Work
 
 The full design is in the wiki: [Architecture](wiki/Architecture.md) for the components
 and their contracts, [Worker pipeline](wiki/Worker-Pipeline.md) for the tools each stage
-runs, [Where scans run from](wiki/VPN-Scanning.md) for the exits and fleets.
+runs, [Where scans run from](wiki/VPN-Scanning.md) for the exits and fleets, and
+[Workers and containers](wiki/Workers-and-Containers.md) for a step-by-step picture of a
+scan going through the VPN.
 
 ## Scan pipeline (per run, across many targets)
 
