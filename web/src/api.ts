@@ -18,6 +18,8 @@ export interface Schedule {
   /** Cadence in hours; 0 is a one-off at next_run_at that disables itself once started. */
   every_hours: number; enabled: boolean; next_run_at: string;
   profile_id?: string | null; params?: Record<string, string>; wordlist_ids?: string[];
+  /** Groups the schedule covers, expanded when each run starts; [] with targets [] means all. */
+  target_group_ids?: string[]; targets?: string[];
   last_run_id?: string | null; last_run_at?: string | null;
   /** Why the last attempt did not start a run — shown until one does. */
   last_error?: string | null; created_at: string;
@@ -43,9 +45,16 @@ export interface ApiToken {
   revoked_at?: string | null; last_used_at?: string | null;
 }
 export interface Summary { domains: number; domains_resolving: number; ips: number; services: number; open_findings: number }
+/** A named list of targets — what one "Add targets" produced; the unit the Dashboard shows and a scan picks. */
+export interface TargetGroup {
+  id: string; scope_id: string; name: string; created_at: string;
+  targets: Target[];
+  /** Every entry is active with a recorded authorization. */
+  authorized: boolean;
+}
 export interface Target {
-  id: string; scope_id: string; kind: string; value: string; tags: string[];
-  mode: string; authorized_by?: string | null; authorized_at?: string | null;
+  id: string; scope_id: string; kind: string; value: string; tags: string[]; group_id?: string | null;
+  mode: string; authorized_by?: string | null; authorized_at?: string | null; created_at?: string;
 }
 export interface Domain {
   id: string; name: string; apex: string; is_wildcard: boolean;
@@ -305,6 +314,13 @@ export const api = {
   targets: (s: string) => req<Target[] | null>(`/scopes/${s}/targets`).then((x) => x ?? []),
   addTarget: (s: string, body: unknown) =>
     req<Target[] | null>(`/scopes/${s}/targets`, { method: "POST", body: JSON.stringify(body) }).then((x) => x ?? []),
+  targetGroups: (s: string) => req<TargetGroup[] | null>(`/scopes/${s}/target-groups`).then((x) => x ?? []),
+  createTargetGroup: (s: string, body: unknown) =>
+    req<TargetGroup>(`/scopes/${s}/target-groups`, { method: "POST", body: JSON.stringify(body) }),
+  patchTargetGroup: (s: string, id: string, body: unknown) =>
+    req<TargetGroup>(`/scopes/${s}/target-groups/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteTargetGroup: (s: string, id: string) =>
+    req<{ deleted: boolean }>(`/scopes/${s}/target-groups/${id}`, { method: "DELETE" }),
   patchTarget: (s: string, id: string, body: unknown) =>
     req<Target>(`/scopes/${s}/targets/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTarget: (s: string, id: string) =>

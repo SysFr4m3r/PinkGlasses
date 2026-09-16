@@ -194,6 +194,9 @@ func (s *Server) addTarget(w http.ResponseWriter, r *http.Request) {
 		Tags      []string `json:"tags"`
 		Mode      string   `json:"mode"`
 		Authorize bool     `json:"authorize"`
+		// Group names the group the values join, created if needed; without
+		// it each value is a group of its own, named after itself.
+		Group string `json:"group"`
 	}
 	if err := readJSON(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "bad body")
@@ -203,40 +206,35 @@ func (s *Server) addTarget(w http.ResponseWriter, r *http.Request) {
 	if in.Value != "" {
 		values = append(values, in.Value)
 	}
+	values = cleanValues(values)
 	if len(values) == 0 {
 		writeErr(w, http.StatusBadRequest, "value or values required")
 		return
 	}
-	mode := domain.TargetMode(in.Mode)
-	if mode == "" {
-		mode = domain.ModePassiveOnly
-	}
-	var authBy *string
-	var authAt *time.Time
-	if in.Authorize && mode == domain.ModeActive {
-		a := actor(r)
-		now := time.Now()
-		authBy = &a
-		authAt = &now
-	}
-	var out []domain.ScopeTarget
-	for _, v := range values {
-		kind := in.Kind
-		if kind == "" {
-			kind = guessKind(v)
-		}
-		t := domain.ScopeTarget{
-			ScopeID: scopeID, Kind: kind, Value: v, Tags: in.Tags, Mode: mode,
-			AuthorizedBy: authBy, AuthorizedAt: authAt,
-		}
-		saved, err := s.st.AddTarget(r.Context(), t)
+	authorize := in.Authorize && (in.Mode == "" || domain.TargetMode(in.Mode) == domain.ModeActive)
+	var groupID *uuid.UUID
+	if g := strings.TrimSpace(in.Group); g != "" {
+		id, err := s.st.EnsureTargetGroup(r.Context(), scopeID, g)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		out = append(out, saved)
+		groupID = &id
 	}
-	s.auditReq(r, "target.add", scopeID.String(), map[string]any{"count": len(out)})
+	out, err := s.addTargetValues(r, scopeID, groupID, values, in.Tags, authorize)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if domain.TargetMode(in.Mode) == domain.ModeExclude {
+		for i := range out {
+			t, _, err := s.st.UpdateTarget(r.Context(), scopeID, out[i].ID, out[i].Kind, out[i].Value, domain.ModeExclude, out[i].Tags, nil, nil)
+			if err == nil {
+				out[i] = t
+			}
+		}
+	}
+	s.auditReq(r, "target.add", scopeID.String(), map[string]any{"count": len(out), "authorized": authorize})
 	writeJSON(w, http.StatusCreated, out)
 }
 

@@ -18,13 +18,15 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Profile     string            `json:"profile"`
-		Targets     []string          `json:"targets"`
-		Tag         string            `json:"tag"`
-		All         bool              `json:"all"`
-		ProfileID   string            `json:"profile_id"`
-		Params      map[string]string `json:"params"`
-		WordlistIDs []string          `json:"wordlist_ids"`
+		Profile string   `json:"profile"`
+		Targets []string `json:"targets"`
+		// TargetGroupIDs: the run covers the entries of these groups.
+		TargetGroupIDs []string          `json:"target_group_ids"`
+		Tag            string            `json:"tag"`
+		All            bool              `json:"all"`
+		ProfileID      string            `json:"profile_id"`
+		Params         map[string]string `json:"params"`
+		WordlistIDs    []string          `json:"wordlist_ids"`
 		// Exit is where the run's active stages leave from — "local" with a
 		// VPNConfigID, or "remote" with a PoolID. A passive run needs neither
 		// (wiki/Architecture.md §7.6).
@@ -40,7 +42,7 @@ func (s *Server) createRun(w http.ResponseWriter, r *http.Request) {
 	// One way to start a run, shared with the scheduler, so a scheduled run is
 	// refused for exactly the reasons a manual one would be.
 	run, ref := s.launcher.Start(r.Context(), scopeID, launch.Options{
-		Profile: in.Profile, Targets: in.Targets, Tag: in.Tag, All: in.All,
+		Profile: in.Profile, Targets: in.Targets, TargetGroupIDs: in.TargetGroupIDs, Tag: in.Tag, All: in.All,
 		ProfileID: in.ProfileID, Params: in.Params, WordlistIDs: in.WordlistIDs,
 		Exit: in.Exit, VPNConfigID: in.VPNConfigID, PoolID: in.PoolID, WorkerCount: in.WorkerCount,
 		Trigger: "manual",

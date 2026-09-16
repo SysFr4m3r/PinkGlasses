@@ -171,8 +171,8 @@ docker compose up --build -d      # postgres, minio, migrate, api, gateway, sche
 ```
 
 The bundled local worker enrols itself, is auto-approved, and appears under
-**Workers → Local workers**. Add a company, add its targets on the **Dashboard**, then
-**Runs → + New scan** and tick which of them the scan covers.
+**Workers → Local workers**. Add a company, add a group of targets on the **Dashboard**,
+then **Runs → + New scan** and tick which groups the scan covers.
 
 A good first target is `scanme.nmap.org`, which Nmap's authors publish for exactly this
 purpose. Add it as an **active** target (port scanning is refused otherwise) and a
@@ -663,21 +663,23 @@ the small list baked into the worker image.
 
 ## Scheduled scans
 
-**The target list lives on the Dashboard.** *+ Add targets* takes domains, IPs or CIDRs one
-per line, with optional tags and the active-scanning authorization. Each row has *Edit*,
-which is the same form: fix the host or range itself in place (the kind is detected again;
-a duplicate of another target is refused), change its tags, tick or untick the
-authorization for active scanning (recorded with your name and the time). Its box takes
-several lines too — the first is this target, any further lines are added as new targets
-with the same tags and authorization. And *Remove*. What earlier scans discovered stays in the inventory whatever you change.
+**Targets come in groups, and the Dashboard owns them.** *+ Add targets* takes a name and a
+list of domains, IPs or CIDRs one per line, with optional tags and the active-scanning
+authorization, and makes one entry of it: a group. The Dashboard lists groups; expand one
+to see its entries. *Edit* is the same form and changes the group as one thing — rename it,
+change its list (entries taken off it are removed, new lines added), its tags, tick or
+untick the authorization for every entry, recorded with your name and the time. *Remove*
+drops the group and its entries. What earlier scans discovered under them stays in the
+inventory whatever you change. Anything added through the plain targets API without a
+group becomes a group of its own, named after itself.
 
 **Runs → + New scan → When.** The same dialog starts a scan now, once at a time
 you pick, or on a repeat — and whatever it runs carries the targets, profile, exit
 and customized settings chosen in that dialog. *What to scan* lists the company's
-targets with a checkbox each, all on by default — nothing about the list itself is
-edited here; that is the Dashboard. A schedule remembers the targets it was given and
-covers exactly those on every run, while one left at "every target" also picks up
-targets added later. *Now* is a run. *Once* is a single
+target groups with a checkbox each, all on by default — nothing about the groups is
+edited here; that is the Dashboard. A schedule remembers the groups it was given and
+expands them when each run starts, so editing a group later changes what its scheduled
+runs cover; one left at "every group" also picks up groups added later. *Now* is a run. *Once* is a single
 run started for you at that time (overnight, after a maintenance window). *Repeat*
 offers hourly, daily, weekly, every 30 or 90 days, yearly, or a custom number of
 hours, with the first run within a minute or at a time you set.

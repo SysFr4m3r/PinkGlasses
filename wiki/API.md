@@ -85,8 +85,12 @@ asset route is under a scope.
 | `GET /scopes` | viewer | all companies; `?mine=true` narrows to ones you created |
 | `POST /scopes` | operator | `{name}` |
 | `GET /scopes/{scopeID}/summary` | viewer | dashboard counters: domains, ips, services, open_findings |
-| `GET /scopes/{scopeID}/targets` | viewer | `?tag=` filters |
-| `POST /scopes/{scopeID}/targets` | operator | `{value}` or `{values:[…]}`, `kind` (domain, cidr, ip, asn — inferred if omitted), `tags`, `mode` (`passive_only` default, `active`, `exclude`), `authorize: true` to record active authorization |
+| `GET /scopes/{scopeID}/target-groups` | viewer | the company's target groups, each with its entries and `authorized` (every entry active with a recorded authorization) |
+| `POST /scopes/{scopeID}/target-groups` | operator | `{name, values, tags, authorize}` — one group from a list of domains, IPs and CIDRs; `name` defaults to the first value; 409 if the name is taken |
+| `PATCH /scopes/{scopeID}/target-groups/{groupID}` | operator | `{name, values, tags, authorize}` — edit the group as one thing: rename, replace its list (entries not in `values` are removed), apply tags and authorization to every entry |
+| `DELETE /scopes/{scopeID}/target-groups/{groupID}` | operator | remove the group and its entries |
+| `GET /scopes/{scopeID}/targets` | viewer | `?tag=` filters; each entry carries its `group_id` |
+| `POST /scopes/{scopeID}/targets` | operator | `{value}` or `{values:[…]}`, `kind` (domain, cidr, ip, asn — inferred if omitted), `tags`, `mode` (`passive_only` default, `active`, `exclude`), `authorize: true` to record active authorization, `group` to add them to a named group (created if needed; without it each value is a group of its own) |
 | `PATCH /scopes/{scopeID}/targets/{targetID}` | operator | `{value, mode, tags, authorize}` — edit a target in place: `value` fixes the host or range itself (kind re-detected; 409 if another target already has it), `mode` and `tags` as on add; `authorize: true` with `mode: active` records who authorized active scanning and when, `false` revokes it, and any other mode clears it |
 | `DELETE /scopes/{scopeID}/targets/{targetID}` | operator | future runs stop covering it; what earlier runs discovered under it stays in the inventory. 404 if the target is not in this company |
 
@@ -116,7 +120,7 @@ asset route is under a scope.
 ```json
 {
   "profile": "standard",          // passive | standard | deep
-  "all": true,                    // or "targets": ["example.com"], or "tag": "prod"
+  "all": true,                    // or "target_group_ids": ["…"], "targets": ["example.com"], or "tag": "prod"
   "exit": "local",                // required unless profile is passive
   "vpn_config_id": "…",           // local: the tunnel this run leaves through
   "pool_id": "…",                 // remote: the pool of enrolled workers instead
@@ -146,7 +150,7 @@ started, so a slow run does not drift the cadence.
 | Route | Role | Purpose |
 |---|---|---|
 | `GET /scopes/{scopeID}/schedules` | viewer | `[{profile, exit, vpn_config_id, pool_id, worker_count, every_hours, enabled, next_run_at, last_run_id, last_run_at, last_error, profile_id, params, wordlist_ids}]` |
-| `POST /scopes/{scopeID}/schedules` | operator | `{profile, targets, exit, vpn_config_id \| pool_id, worker_count, every_hours, start_at, profile_id, params, wordlist_ids, enabled}` — `targets` narrows each run to those values, empty is every non-excluded target at the time — `every_hours` 1…8784 repeats from `start_at` (default now); `0` runs once at `start_at`, then disables itself |
+| `POST /scopes/{scopeID}/schedules` | operator | `{profile, target_group_ids, targets, exit, vpn_config_id \| pool_id, worker_count, every_hours, start_at, profile_id, params, wordlist_ids, enabled}` — `targets` narrows each run to those values, empty is every non-excluded target at the time — `every_hours` 1…8784 repeats from `start_at` (default now); `0` runs once at `start_at`, then disables itself |
 | `PATCH /schedules/{scheduleID}` | operator | any of the same fields; disabling stops it without losing it; `start_at` moves the next run |
 | `DELETE /schedules/{scheduleID}` | operator | |
 | `PATCH /scopes/{scopeID}` | operator | `{default_exit, default_vpn_config_id, default_pool_id}` — the exit the launch dialog pre-selects |

@@ -109,12 +109,14 @@ type Scope struct {
 
 // ScopeTarget is a domain/CIDR/ASN/IP the scope is allowed to look at.
 type ScopeTarget struct {
-	ID           uuid.UUID  `json:"id"`
-	ScopeID      uuid.UUID  `json:"scope_id"`
-	Kind         string     `json:"kind"`
-	Value        string     `json:"value"`
-	Tags         []string   `json:"tags"`
-	Mode         TargetMode `json:"mode"`
+	ID      uuid.UUID  `json:"id"`
+	ScopeID uuid.UUID  `json:"scope_id"`
+	Kind    string     `json:"kind"`
+	Value   string     `json:"value"`
+	Tags    []string   `json:"tags"`
+	Mode    TargetMode `json:"mode"`
+	// GroupID is the named group the target was added as part of.
+	GroupID      *uuid.UUID `json:"group_id,omitempty"`
 	PoolID       *uuid.UUID `json:"pool_id,omitempty"`
 	AuthorizedBy *string    `json:"authorized_by,omitempty"`
 	AuthorizedAt *time.Time `json:"authorized_at,omitempty"`

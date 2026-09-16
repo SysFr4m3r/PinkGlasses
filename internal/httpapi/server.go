@@ -86,6 +86,7 @@ func (s *Server) Routes() http.Handler {
 				v.Get("/scopes", s.listScopes)
 				v.Get("/scopes/{scopeID}/summary", s.scopeSummary)
 				v.Get("/scopes/{scopeID}/targets", s.listTargets)
+				v.Get("/scopes/{scopeID}/target-groups", s.listTargetGroups)
 
 				v.Get("/scan-params", s.listScanParamSpecs)
 				v.Get("/scopes/{scopeID}/scan-profiles", s.listScanProfiles)
@@ -136,6 +137,9 @@ func (s *Server) Routes() http.Handler {
 
 				o.Post("/scopes", s.createScope)
 				o.Post("/scopes/{scopeID}/targets", s.addTarget)
+				o.Post("/scopes/{scopeID}/target-groups", s.createTargetGroup)
+				o.Patch("/scopes/{scopeID}/target-groups/{groupID}", s.patchTargetGroup)
+				o.Delete("/scopes/{scopeID}/target-groups/{groupID}", s.deleteTargetGroup)
 				o.Patch("/scopes/{scopeID}/targets/{targetID}", s.patchTarget)
 				o.Delete("/scopes/{scopeID}/targets/{targetID}", s.deleteTarget)
 				o.Post("/scopes/{scopeID}/scan-profiles", s.saveScanProfile)

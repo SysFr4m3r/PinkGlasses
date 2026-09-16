@@ -79,13 +79,14 @@ func (s *Store) AddTarget(ctx context.Context, t domain.ScopeTarget) (domain.Sco
 		t.Tags = []string{} // column is NOT NULL; nil would violate the constraint
 	}
 	err := s.Pool.QueryRow(ctx, `
-		INSERT INTO scope_target (scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		INSERT INTO scope_target (scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, group_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		ON CONFLICT (scope_id, kind, value) DO UPDATE
 		  SET tags=EXCLUDED.tags, mode=EXCLUDED.mode, pool_id=EXCLUDED.pool_id,
-		      authorized_by=EXCLUDED.authorized_by, authorized_at=EXCLUDED.authorized_at
+		      authorized_by=EXCLUDED.authorized_by, authorized_at=EXCLUDED.authorized_at,
+		      group_id=COALESCE(EXCLUDED.group_id, scope_target.group_id)
 		RETURNING id, created_at`,
-		t.ScopeID, t.Kind, t.Value, t.Tags, t.Mode, t.PoolID, t.AuthorizedBy, t.AuthorizedAt,
+		t.ScopeID, t.Kind, t.Value, t.Tags, t.Mode, t.PoolID, t.AuthorizedBy, t.AuthorizedAt, t.GroupID,
 	).Scan(&t.ID, &t.CreatedAt)
 	return t, err
 }
@@ -94,9 +95,9 @@ func (s *Store) AddTarget(ctx context.Context, t domain.ScopeTarget) (domain.Sco
 func (s *Store) GetTarget(ctx context.Context, scopeID, targetID uuid.UUID) (domain.ScopeTarget, bool, error) {
 	var t domain.ScopeTarget
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at
+		SELECT id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at, group_id
 		FROM scope_target WHERE id=$1 AND scope_id=$2`, targetID, scopeID,
-	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt)
+	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt, &t.GroupID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, false, nil
 	}
@@ -119,9 +120,9 @@ func (s *Store) UpdateTarget(ctx context.Context, scopeID, targetID uuid.UUID, k
 	err := s.Pool.QueryRow(ctx, `
 		UPDATE scope_target SET kind=$3, value=$4, mode=$5, tags=$6, authorized_by=$7, authorized_at=$8
 		WHERE id=$1 AND scope_id=$2
-		RETURNING id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at`,
+		RETURNING id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at, group_id`,
 		targetID, scopeID, kind, value, mode, tags, authBy, authAt,
-	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt)
+	).Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode, &t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt, &t.GroupID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, false, nil
 	}
@@ -146,7 +147,7 @@ func (s *Store) DeleteTarget(ctx context.Context, scopeID, targetID uuid.UUID) (
 
 // ListTargets returns the targets of a scope, optionally filtered by tag.
 func (s *Store) ListTargets(ctx context.Context, scopeID uuid.UUID, tag string) ([]domain.ScopeTarget, error) {
-	q := `SELECT id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at
+	q := `SELECT id, scope_id, kind, value, tags, mode, pool_id, authorized_by, authorized_at, created_at, group_id
 	      FROM scope_target WHERE scope_id=$1`
 	args := []any{scopeID}
 	if tag != "" {
@@ -163,7 +164,7 @@ func (s *Store) ListTargets(ctx context.Context, scopeID uuid.UUID, tag string) 
 	for rows.Next() {
 		var t domain.ScopeTarget
 		if err := rows.Scan(&t.ID, &t.ScopeID, &t.Kind, &t.Value, &t.Tags, &t.Mode,
-			&t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt); err != nil {
+			&t.PoolID, &t.AuthorizedBy, &t.AuthorizedAt, &t.CreatedAt, &t.GroupID); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

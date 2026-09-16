@@ -32,6 +32,8 @@ type scheduleInput struct {
 	WordlistIDs []string          `json:"wordlist_ids"`
 	// Targets narrows each run; absent keeps the current choice, [] means all.
 	Targets []string `json:"targets"`
+	// TargetGroupIDs narrows each run to those groups; absent keeps, [] clears.
+	TargetGroupIDs []string `json:"target_group_ids"`
 }
 
 // maxEveryHours is a leap year: the longest cadence the dialog offers is yearly.
@@ -117,6 +119,16 @@ func (in scheduleInput) apply(sc *store.Schedule) *exitErr {
 			if t = strings.TrimSpace(t); t != "" {
 				sc.Targets = append(sc.Targets, t)
 			}
+		}
+	}
+	if in.TargetGroupIDs != nil {
+		sc.TargetGroupIDs = []uuid.UUID{}
+		for _, raw := range in.TargetGroupIDs {
+			id, err := uuid.Parse(raw)
+			if err != nil {
+				return &exitErr{http.StatusBadRequest, "bad target group id " + raw}
+			}
+			sc.TargetGroupIDs = append(sc.TargetGroupIDs, id)
 		}
 	}
 	if in.WordlistIDs != nil {

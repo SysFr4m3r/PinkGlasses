@@ -193,10 +193,9 @@ function Schedules({ scopeID }: { scopeID: string }) {
     : sc.exit === "local" ? `local · ${vpnConfigs.find((c) => c.id === sc.vpn_config_id)?.name ?? "VPN config missing"}`
     : `remote · ${(pools ?? []).find((p) => p.id === sc.pool_id)?.name ?? "pool missing"}`;
   const settings = (sc: Schedule) => {
-    const n = Object.keys(sc.params ?? {}).length, w = (sc.wordlist_ids ?? []).length;
-    if (!n && !w && !sc.profile_id) return "defaults";
-    return [sc.profile_id && "preset", n > 0 && `${n} setting${n === 1 ? "" : "s"}`, w > 0 && `${w} wordlist${w === 1 ? "" : "s"}`]
-      .filter(Boolean).join(" · ");
+    const n = Object.keys(sc.params ?? {}).length, w = (sc.wordlist_ids ?? []).length, g = (sc.target_group_ids ?? []).length;
+    const parts = [g > 0 && `${g} group${g === 1 ? "" : "s"}`, sc.profile_id && "preset", n > 0 && `${n} setting${n === 1 ? "" : "s"}`, w > 0 && `${w} wordlist${w === 1 ? "" : "s"}`].filter(Boolean);
+    return parts.length ? parts.join(" · ") : "all groups · defaults";
   };
   const when = (d: string) => new Date(d).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
 
@@ -297,17 +296,18 @@ function LaunchModal({
   // case stays a two-click scan.
   // A scan over a scope with no targets can only fail, so the modal checks
   // first and offers the fix rather than letting the request 400.
-  const { data: targets } = useQuery({
-    queryKey: ["targets", scopeID], queryFn: () => api.targets(scopeID),
+  const { data: groupsData } = useQuery({
+    queryKey: ["target-groups", scopeID], queryFn: () => api.targetGroups(scopeID),
   });
-  const usable = (targets ?? []).filter((t) => t.mode !== "exclude");
-  // What to scan. `excluded` holds the values the person unticked, so a
-  // target added while the dialog is open is scanned by default.
+  const usable = (groupsData ?? []).filter((g) => g.targets.length > 0);
+  // What to scan: groups. `excluded` holds the ids the person unticked, so a
+  // group added while the dialog is open is scanned by default.
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const chosen = usable.filter((t) => !excluded.has(t.value));
+  const chosen = usable.filter((g) => !excluded.has(g.id));
   const allChosen = chosen.length === usable.length;
-  const toggleTarget = (v: string) => setExcluded((s) => {
-    const n = new Set(s); n.has(v) ? n.delete(v) : n.add(v); return n;
+  const chosenEntries = chosen.reduce((a, g) => a + g.targets.length, 0);
+  const toggleTarget = (id: string) => setExcluded((s) => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
   const [manual, setManual] = useState(false);
@@ -337,7 +337,7 @@ function LaunchModal({
     if (chosen.length === 0) { setBusy(false); return; }
     const choices = {
       profile,
-      ...(allChosen ? {} : { targets: chosen.map((t) => t.value) }),
+      ...(allChosen ? {} : { target_group_ids: chosen.map((g) => g.id) }),
       ...(presetID ? { profile_id: presetID } : {}),
       ...(Object.keys(params).length ? { params } : {}),
       ...(wordlistIDs.length ? { wordlist_ids: wordlistIDs } : {}),
@@ -355,7 +355,7 @@ function LaunchModal({
         const at = when === "once" || startLater ? new Date(startAt) : null;
         await api.createSchedule(scopeID, {
           ...choices,
-          targets: allChosen ? [] : chosen.map((t) => t.value),
+          target_group_ids: allChosen ? [] : chosen.map((g) => g.id),
           every_hours: when === "once" ? 0 : every,
           ...(at ? { start_at: at.toISOString() } : {}),
         });
@@ -412,7 +412,7 @@ function LaunchModal({
       footer={<>
         <button className="ghost" onClick={close}>Cancel</button>
         <button onClick={start} disabled={busy || chosen.length === 0 || !exitReady || !startValid}>
-          {busy ? (when === "now" ? "Starting…" : "Saving…") : `${verb}${chosen.length ? ` (${chosen.length} target${chosen.length === 1 ? "" : "s"})` : ""}`}
+          {busy ? (when === "now" ? "Starting…" : "Saving…") : `${verb}${chosen.length ? ` (${chosenEntries} target${chosenEntries === 1 ? "" : "s"})` : ""}`}
         </button>
       </>}
     >
@@ -422,29 +422,31 @@ function LaunchModal({
           <p style={{ marginTop: 0 }}>This company has no targets yet, so there is nothing to scan.</p>
           <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
             A company is a container — naming it after a domain does not add that domain.
-            Add a domain, IP or CIDR on the <strong>Dashboard</strong> first.
+            Add a group of domains, IPs or CIDRs on the <strong>Dashboard</strong> first.
           </p>
         </div>
       ) : (
         <>
           <div className="target-pick">
-            {usable.map((t) => (
-              <label key={t.id} className="target-row" title={t.mode === "active" ? "Active scanning authorized" : "Passive only: discovery and resolution, no packets sent to it"}>
-                <input type="checkbox" checked={!excluded.has(t.value)} onChange={() => toggleTarget(t.value)} />
-                <span className="mono">{t.value}</span>
-                <span className="muted" style={{ fontSize: 11.5 }}>{t.kind}</span>
-                {t.mode === "active"
+            {usable.map((g) => (
+              <label key={g.id} className="target-row" title={g.targets.map((t) => t.value).join(", ")}>
+                <input type="checkbox" checked={!excluded.has(g.id)} onChange={() => toggleTarget(g.id)} />
+                <strong>{g.name}</strong>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {g.targets.length} entr{g.targets.length === 1 ? "y" : "ies"}
+                  <span className="mono"> · {g.targets.slice(0, 3).map((t) => t.value).join(", ")}{g.targets.length > 3 ? ", …" : ""}</span>
+                </span>
+                {g.authorized
                   ? <span className="badge b-active">active</span>
-                  : <span className="badge">{t.mode.replace("_", " ")}</span>}
-                {(t.tags ?? []).map((x) => <span key={x} className="pill">{x}</span>)}
+                  : <span className="badge">passive only</span>}
               </label>
             ))}
           </div>
           <div className="row" style={{ marginTop: 6, gap: 10 }}>
             <button className="ghost sm" onClick={() => setExcluded(new Set())} disabled={allChosen}>All</button>
-            <button className="ghost sm" onClick={() => setExcluded(new Set(usable.map((t) => t.value)))} disabled={chosen.length === 0}>None</button>
+            <button className="ghost sm" onClick={() => setExcluded(new Set(usable.map((g) => g.id)))} disabled={chosen.length === 0}>None</button>
             <span className="muted" style={{ fontSize: 12 }}>
-              {allChosen ? "Every target." : `${chosen.length} of ${usable.length}.`} Targets without an
+              {allChosen ? "Every group." : `${chosen.length} of ${usable.length} groups.`} Groups without an
               active-scanning authorization are skipped by active stages automatically.
             </span>
           </div>

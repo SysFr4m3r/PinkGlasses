@@ -29,9 +29,12 @@ type Schedule struct {
 	WordlistIDs []uuid.UUID       `json:"wordlist_ids"`
 	// Targets narrows each run to these target values; empty is every
 	// non-excluded target at the time the run starts.
-	Targets   []string   `json:"targets"`
-	LastRunID *uuid.UUID `json:"last_run_id,omitempty"`
-	LastRunAt *time.Time `json:"last_run_at,omitempty"`
+	Targets []string `json:"targets"`
+	// TargetGroupIDs narrows each run to these groups, expanded when the run
+	// starts, so a group edited later changes what the schedule covers.
+	TargetGroupIDs []uuid.UUID `json:"target_group_ids"`
+	LastRunID      *uuid.UUID  `json:"last_run_id,omitempty"`
+	LastRunAt      *time.Time  `json:"last_run_at,omitempty"`
 	// LastError is why the most recent attempt did not start a run — a deleted
 	// VPN config, an empty pool. Cleared when a run does start.
 	LastError *string   `json:"last_error,omitempty"`
@@ -39,14 +42,14 @@ type Schedule struct {
 }
 
 const scheduleCols = `id, scope_id, profile, exit, vpn_config_id, pool_id, worker_count, every_hours,
-	enabled, next_run_at, last_run_id, last_run_at, last_error, created_at, profile_id, params, wordlist_ids, targets`
+	enabled, next_run_at, last_run_id, last_run_at, last_error, created_at, profile_id, params, wordlist_ids, targets, target_group_ids`
 
 func scanSchedule(row interface{ Scan(...any) error }) (Schedule, error) {
 	var sc Schedule
 	var raw []byte
 	err := row.Scan(&sc.ID, &sc.ScopeID, &sc.Profile, &sc.Exit, &sc.VPNConfigID, &sc.PoolID,
 		&sc.WorkerCount, &sc.EveryHours, &sc.Enabled, &sc.NextRunAt, &sc.LastRunID,
-		&sc.LastRunAt, &sc.LastError, &sc.CreatedAt, &sc.ProfileID, &raw, &sc.WordlistIDs, &sc.Targets)
+		&sc.LastRunAt, &sc.LastError, &sc.CreatedAt, &sc.ProfileID, &raw, &sc.WordlistIDs, &sc.Targets, &sc.TargetGroupIDs)
 	if err != nil {
 		return sc, err
 	}
@@ -57,6 +60,9 @@ func scanSchedule(row interface{ Scan(...any) error }) (Schedule, error) {
 	}
 	if sc.Targets == nil {
 		sc.Targets = []string{}
+	}
+	if sc.TargetGroupIDs == nil {
+		sc.TargetGroupIDs = []uuid.UUID{}
 	}
 	return sc, nil
 }
@@ -92,10 +98,10 @@ func (s *Store) CreateSchedule(ctx context.Context, sc Schedule, createdBy *uuid
 	}
 	return scanSchedule(s.Pool.QueryRow(ctx, `
 		INSERT INTO scan_schedule (scope_id, profile, exit, vpn_config_id, pool_id, worker_count,
-		                           every_hours, enabled, next_run_at, created_by, profile_id, params, wordlist_ids, targets)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING `+scheduleCols,
+		                           every_hours, enabled, next_run_at, created_by, profile_id, params, wordlist_ids, targets, target_group_ids)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING `+scheduleCols,
 		sc.ScopeID, sc.Profile, sc.Exit, sc.VPNConfigID, sc.PoolID, sc.WorkerCount,
-		sc.EveryHours, sc.Enabled, sc.NextRunAt, createdBy, sc.ProfileID, paramsJSON(sc.Params), idsOrEmpty(sc.WordlistIDs), strsOrEmpty(sc.Targets)))
+		sc.EveryHours, sc.Enabled, sc.NextRunAt, createdBy, sc.ProfileID, paramsJSON(sc.Params), idsOrEmpty(sc.WordlistIDs), strsOrEmpty(sc.Targets), idsOrEmpty(sc.TargetGroupIDs)))
 }
 
 // UpdateSchedule replaces the editable fields. A non-nil startAt moves the next
@@ -105,12 +111,12 @@ func (s *Store) UpdateSchedule(ctx context.Context, sc Schedule, startAt *time.T
 	return scanSchedule(s.Pool.QueryRow(ctx, `
 		UPDATE scan_schedule SET profile=$2, exit=$3, vpn_config_id=$4, pool_id=$5,
 		  worker_count=$6, every_hours=$7, enabled=$8,
-		  profile_id=$9, params=$10, wordlist_ids=$11, targets=$13,
+		  profile_id=$9, params=$10, wordlist_ids=$11, targets=$13, target_group_ids=$14,
 		  next_run_at = COALESCE($12, CASE WHEN $7 = 0 THEN next_run_at
 		                                   ELSE LEAST(next_run_at, now() + make_interval(hours => $7)) END)
 		WHERE id=$1 RETURNING `+scheduleCols,
 		sc.ID, sc.Profile, sc.Exit, sc.VPNConfigID, sc.PoolID, sc.WorkerCount, sc.EveryHours, sc.Enabled,
-		sc.ProfileID, paramsJSON(sc.Params), idsOrEmpty(sc.WordlistIDs), startAt, strsOrEmpty(sc.Targets)))
+		sc.ProfileID, paramsJSON(sc.Params), idsOrEmpty(sc.WordlistIDs), startAt, strsOrEmpty(sc.Targets), idsOrEmpty(sc.TargetGroupIDs)))
 }
 
 // DeleteSchedule removes one.

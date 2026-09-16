@@ -200,7 +200,7 @@ paths:
   /api/v1/scopes/{scopeID}/targets:
     get:
       operationId: getScopesByScopeIDTargets
-      summary: "?tag= filters"
+      summary: "?tag= filters; each entry carries its group_id"
       x-required-role: viewer
       parameters:
         - {name: scopeID, in: path, required: true, schema: {type: string}}
@@ -217,7 +217,43 @@ paths:
         "409": {$ref: "#/components/responses/e409"}
     post:
       operationId: postScopesByScopeIDTargets
-      summary: "{value} or {values:[…]}, kind (domain, cidr, ip, asn — inferred if omitted), tags, mode (passive_only default, active, exclude), authorize: true to record active authorization"
+      summary: "{value} or {values:[…]}, kind (domain, cidr, ip, asn — inferred if omitted), tags, mode (passive_only default, active, exclude), authorize: true to record active authorization, group to add them to a named group (created if needed; without it each value is a group of its own)"
+      x-required-role: operator
+      parameters:
+        - {name: scopeID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "201": {description: created}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
+  /api/v1/scopes/{scopeID}/target-groups:
+    get:
+      operationId: getScopesByScopeIDTargetGroups
+      summary: "the company's target groups, each with its entries and authorized (every entry active with a recorded authorization)"
+      x-required-role: viewer
+      parameters:
+        - {name: scopeID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
+    post:
+      operationId: postScopesByScopeIDTargetGroups
+      summary: "{name, values, tags, authorize} — one group from a list of domains, IPs and CIDRs; name defaults to the first value; 409 if the name is taken"
       x-required-role: operator
       parameters:
         - {name: scopeID, in: path, required: true, schema: {type: string}}
@@ -922,6 +958,43 @@ paths:
       x-required-role: viewer
       parameters:
         - {name: tokenID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
+  /api/v1/scopes/{scopeID}/target-groups/{groupID}:
+    delete:
+      operationId: deleteScopesByScopeIDTargetGroupsByGroupID
+      summary: "remove the group and its entries"
+      x-required-role: operator
+      parameters:
+        - {name: scopeID, in: path, required: true, schema: {type: string}}
+        - {name: groupID, in: path, required: true, schema: {type: string}}
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
+    patch:
+      operationId: patchScopesByScopeIDTargetGroupsByGroupID
+      summary: "{name, values, tags, authorize} — edit the group as one thing: rename, replace its list (entries not in values are removed), apply tags and authorization to every entry"
+      x-required-role: operator
+      parameters:
+        - {name: scopeID, in: path, required: true, schema: {type: string}}
+        - {name: groupID, in: path, required: true, schema: {type: string}}
       security:
         - session: []
         - token: []

@@ -789,3 +789,17 @@ tasks at all; probing by the first resolving name as well would close that.
       the run's screenshot and raw-output keys are removed from object storage through a
       presigned DELETE (live test against MinIO). Verified: 409 while running, 200 on the
       stopped run with tasks, targets and wordlist links gone, 404 afterwards, audited.
+
+- [x] 24.9 **Targets come in named groups.** What you paste into *Add targets* on the Dashboard
+      becomes one entry — a group with a name and its list of domains, IPs and CIDRs — not a
+      row per line. The Dashboard lists groups (expand to see the entries; Edit changes the
+      list, tags and authorization for all of them; Remove drops the group). The Start-a-scan
+      dialog picks groups, and a schedule remembers groups, so editing a group later changes
+      what its scheduled runs cover.
+      Done 2026-09-16: migration 00032 (`target_group`, `scope_target.group_id`,
+      `scan_schedule.target_group_ids`; every existing target became a group of one named
+      after itself). Verified: a group of three named after its first entry; a duplicate name
+      409; edit renamed it, dropped one entry, added one and authorized all; a run over one
+      group covered exactly its entries; a schedule over a group, edited before it fired,
+      covered the new entry too; the plain targets endpoint makes a group per value; deleting
+      a group removed its entries; a run over a deleted group is refused.

@@ -33,8 +33,12 @@ type Options struct {
 	// Targets narrows to named target values; Tag to a tag; All takes every
 	// non-excluded target. The first of these that is set wins.
 	Targets []string
-	Tag     string
-	All     bool
+	// TargetGroupIDs are named groups whose entries the run covers; they are
+	// expanded to Targets at start, so a group edited later changes what a
+	// schedule over it covers.
+	TargetGroupIDs []string
+	Tag            string
+	All            bool
 	// Exit is where the active stages leave from: "local" (needs VPNConfigID)
 	// or "remote" (needs PoolID). A passive profile needs neither.
 	Exit        string
@@ -88,6 +92,26 @@ func (l *Launcher) Start(ctx context.Context, scopeID uuid.UUID, o Options) (dom
 	}
 	if o.Trigger == "" {
 		o.Trigger = "manual"
+	}
+
+	// Groups become their entries. A group that no longer exists contributes
+	// nothing; if that leaves no target, the refusal below says so.
+	if len(o.TargetGroupIDs) > 0 {
+		var ids []uuid.UUID
+		for _, raw := range o.TargetGroupIDs {
+			if id, err := uuid.Parse(raw); err == nil {
+				ids = append(ids, id)
+			}
+		}
+		vals, err := l.st.GroupValues(ctx, scopeID, ids)
+		if err != nil {
+			return domain.ScanRun{}, refuse(http.StatusInternalServerError, "%v", err)
+		}
+		o.Targets = append(o.Targets, vals...)
+		o.All = false
+		if len(vals) == 0 {
+			return domain.ScanRun{}, refuse(http.StatusBadRequest, "none of the chosen target groups exist any more, or they are empty")
+		}
 	}
 
 	// Targets: never scan an excluded one.
@@ -414,9 +438,12 @@ func (l *Launcher) Due(ctx context.Context) {
 			continue
 		}
 		o := Options{
-			Profile: sc.Profile, All: len(sc.Targets) == 0, Targets: sc.Targets,
+			Profile: sc.Profile, All: len(sc.Targets) == 0 && len(sc.TargetGroupIDs) == 0, Targets: sc.Targets,
 			Exit: sc.Exit, WorkerCount: sc.WorkerCount,
 			Params: sc.Params, Trigger: "scheduled",
+		}
+		for _, g := range sc.TargetGroupIDs {
+			o.TargetGroupIDs = append(o.TargetGroupIDs, g.String())
 		}
 		if sc.ProfileID != nil {
 			o.ProfileID = sc.ProfileID.String()
