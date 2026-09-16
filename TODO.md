@@ -736,3 +736,13 @@ to end (migration 00029, `web_vhosts_per_address`, `?host=` on the screenshot en
 Follow-up worth doing: the service probe itself still asks by address, so a port that
 only answers with SNI (a strict TLS front) is never seen as live and gets no per-name
 tasks at all; probing by the first resolving name as well would close that.
+
+## Phase 24 — Choose what to scan; jump from numbers to the search
+
+- [ ] 24.1 **Choose what to scan in the Start-a-scan dialog.** The dialog lists the
+      company's targets with a checkbox each (all on by default) and lets you add new
+      targets right there — the *Add targets* form moves here from the Dashboard, which
+      keeps the table and Remove. The choice applies to a run now, a one-off and a repeat,
+      so a schedule remembers which targets it covers.
+- [ ] 24.2 **Dashboard → Search.** The Services number on the Dashboard opens Search with
+      `product:*` already run, exactly as if you had gone there and clicked it.
