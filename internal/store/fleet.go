@@ -81,6 +81,64 @@ func (s *Store) FleetsToTearDown(ctx context.Context) ([]RunFleet, error) {
 		`f.status IN ('up','failed','requested') AND r.status NOT IN ('queued','planning','running','paused')`)
 }
 
+// FleetView is a run's fleet as the Workers page shows it: the gateway with
+// its tunnel and exit address, the workers, and the run it belongs to. The
+// gateway is not a worker — it never enrols — so this is the only place it
+// is visible.
+type FleetView struct {
+	RunID       uuid.UUID  `json:"run_id"`
+	ScopeID     uuid.UUID  `json:"scope_id"`
+	Company     string     `json:"company"`
+	Profile     string     `json:"profile"`
+	RunStatus   string     `json:"run_status"`
+	Status      string     `json:"status"` // requested|up|failed|torn_down
+	Error       *string    `json:"error,omitempty"`
+	EgressIP    *string    `json:"egress_ip,omitempty"`
+	Workers     int        `json:"workers"`
+	WorkersAuto bool       `json:"workers_auto"`
+	WorkerNames []string   `json:"worker_names"`
+	VPNName     *string    `json:"vpn_name,omitempty"`
+	VPNKind     *string    `json:"vpn_kind,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	ReadyAt     *time.Time `json:"ready_at,omitempty"`
+	TornDownAt  *time.Time `json:"torn_down_at,omitempty"`
+}
+
+// ListFleetViews returns every fleet still up or being built, plus those that
+// ended in the last day, newest first — enough to see what a run did with its
+// containers after the fact.
+func (s *Store) ListFleetViews(ctx context.Context) ([]FleetView, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT f.run_id, r.scope_id, sc.name, r.profile, r.status, f.status, f.error, f.egress_ip,
+		       f.workers, f.workers_auto, v.name, v.kind, f.created_at, f.ready_at, f.torn_down_at,
+		       COALESCE((SELECT array_agg(w.name ORDER BY w.name) FROM worker w WHERE w.pool_id = f.pool_id), '{}')
+		FROM run_fleet f
+		JOIN scan_run r ON r.id = f.run_id
+		JOIN scope sc ON sc.id = r.scope_id
+		LEFT JOIN vpn_config v ON v.id = f.vpn_config_id
+		WHERE f.status IN ('requested','up')
+		   OR COALESCE(f.torn_down_at, f.created_at) > now() - interval '24 hours'
+		ORDER BY (f.status IN ('requested','up')) DESC, f.created_at DESC
+		LIMIT 20`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []FleetView{}
+	for rows.Next() {
+		var v FleetView
+		if err := rows.Scan(&v.RunID, &v.ScopeID, &v.Company, &v.Profile, &v.RunStatus, &v.Status, &v.Error, &v.EgressIP,
+			&v.Workers, &v.WorkersAuto, &v.VPNName, &v.VPNKind, &v.CreatedAt, &v.ReadyAt, &v.TornDownAt, &v.WorkerNames); err != nil {
+			return nil, err
+		}
+		if v.WorkerNames == nil {
+			v.WorkerNames = []string{}
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 // LiveFleets returns fleets whose run is still going, for supervision.
 func (s *Store) LiveFleets(ctx context.Context) ([]RunFleet, error) {
 	return s.fleetsWhere(ctx, `f.status='up' AND r.status IN ('queued','planning','running','paused')`)

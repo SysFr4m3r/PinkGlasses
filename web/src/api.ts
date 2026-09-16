@@ -84,6 +84,14 @@ export interface RunTarget {
   id: string; run_id: string; kind: string; value: string; status: string;
   skip_reason?: string | null; tasks_total: number; tasks_done: number;
 }
+/** A run's own containers: the VPN gateway and the workers beside it. */
+export interface FleetView {
+  run_id: string; scope_id: string; company: string; profile: string; run_status: string;
+  status: "requested" | "up" | "failed" | "torn_down"; error?: string | null; egress_ip?: string | null;
+  workers: number; workers_auto: boolean; worker_names: string[];
+  vpn_name?: string | null; vpn_kind?: string | null;
+  created_at: string; ready_at?: string | null; torn_down_at?: string | null;
+}
 export interface Worker {
   id: string; name: string; kind: string; status: string; capabilities: string[];
   tools: Record<string, string>; agent_version: string; egress_ip?: string | null;
@@ -414,6 +422,7 @@ export const api = {
   patchScope: (s: string, body: unknown) =>
     req<{ ok: boolean }>(`/scopes/${s}`, { method: "PATCH", body: JSON.stringify(body) }),
   workers: () => req<Worker[] | null>("/workers").then((x) => x ?? []),
+  fleets: () => req<FleetView[] | null>("/fleets").then((x) => x ?? []),
   pools: () => req<WorkerPool[] | null>("/pools").then((x) => x ?? []),
   enrollToken: (body: unknown) =>
     req<{ kind: string; token?: string; install_command: string; expires_in?: string; note?: string }>(

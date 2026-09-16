@@ -117,6 +117,7 @@ func (s *Server) Routes() http.Handler {
 				v.Get("/wordlists", s.listWordlists)
 				v.Get("/wordlists/{wordlistID}/content", s.getWordlistContent)
 				v.Get("/workers", s.listWorkers)
+				v.Get("/fleets", s.listFleets)
 				// Where a run may scan from: every pool that is not a run's own.
 				v.Get("/pools", s.listPools)
 

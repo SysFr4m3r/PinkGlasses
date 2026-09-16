@@ -215,6 +215,7 @@ Event kinds: `new_finding`, `finding_gone`, `finding_returned`, `new_port`,
 | Route | Role | Purpose |
 |---|---|---|
 | `GET /workers` | viewer | every worker: status, egress, load, tools, `run_scoped` for a run's own containers |
+| `GET /fleets` | viewer | runs' own fleets — the VPN gateway (tunnel state, exit address, VPN config) and the workers beside it, with the run and company — every fleet up or being built plus those ended in the last day |
 | `GET /pools` | viewer | pools a run may choose as its remote exit, with `active_workers` — remote workers only; the standing local workers run passive stages and are never an exit |
 | `POST /workers/enrollment-tokens` | admin | `{kind: vps, name, pool_id, ttl_mins, max_uses}` → `{token, install_command, expires_in}`. `kind: local` is refused: the standing worker enrols itself and a run's fleet is built by the scheduler |
 | `POST /workers/{workerID}/{action}` | admin | `approve`, `drain`, `resume`, `quarantine` |

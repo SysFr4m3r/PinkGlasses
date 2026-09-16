@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, Worker } from "../api";
+import { api, Worker, FleetView } from "../api";
+import { Link } from "react-router-dom";
 import { Modal, Stat, Badge, useToast, Spinner, InfoDot } from "../components/ui";
 
 // Fleet management. Two kinds of worker, told apart by how they enrol:
@@ -70,6 +71,8 @@ export default function Fleet() {
       </div>
 
       <VPSModal open={vpsOpen} onClose={() => setVpsOpen(false)} />
+
+      <RunFleets />
 
       <WorkerTable title="Local workers" workers={local} act={act} onDelete={setPendingDelete} />
       <WorkerTable title="External (VPS) workers" workers={remote} act={act} onDelete={setPendingDelete} />
@@ -268,5 +271,67 @@ function WorkerTable({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Runs' own containers. The VPN gateway never enrols — it only holds the
+ * tunnel — so it is not a worker and appears nowhere else; this is where a
+ * person sees that an active scan is leaving through the VPN, from which
+ * address, with how many workers beside it.
+ */
+function RunFleets() {
+  const { data: fleets } = useQuery({ queryKey: ["fleets"], queryFn: () => api.fleets(), refetchInterval: 5000 });
+  const list = fleets ?? [];
+  const live = list.filter((f) => f.status === "requested" || f.status === "up");
+  const past = list.filter((f) => f.status !== "requested" && f.status !== "up");
+  const when = (d?: string | null) => d ? new Date(d).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "—";
+  const gateway = (f: FleetView) => {
+    const cfg = f.vpn_name ? `${f.vpn_name} (${f.vpn_kind})` : "no VPN";
+    switch (f.status) {
+      case "requested": return <><span className="badge b-queued">starting</span> <span className="muted">{cfg}{f.error ? ` · ${f.error}` : ""}</span></>;
+      case "up": return <><span className="badge b-open">tunnel up</span> <span className="muted">{cfg}</span>{f.egress_ip && <> · exit <span className="mono">{f.egress_ip}</span></>}</>;
+      case "failed": return <><span className="badge b-failed">failed</span> <span className="muted">{cfg}</span>{f.error && <div className="sev-high wrap" style={{ fontSize: 11.5 }}>{f.error}</div>}</>;
+      default: return <><span className="badge">destroyed</span> <span className="muted">{cfg}</span>{f.egress_ip && <> · was <span className="mono">{f.egress_ip}</span></>}</>;
+    }
+  };
+  const row = (f: FleetView) => (
+    <tr key={f.run_id}>
+      <td>
+        <Link to="/runs" className="mono" title="Open Scan runs">{f.run_id.slice(0, 8)}</Link>
+        <div className="muted" style={{ fontSize: 12 }}>{f.company} · {f.profile} · {f.run_status}</div>
+      </td>
+      <td>{gateway(f)}</td>
+      <td>
+        {f.workers} worker{f.workers === 1 ? "" : "s"}{f.workers_auto ? <span className="muted"> · auto</span> : null}
+        {f.worker_names.length > 0 && <div className="mono muted" style={{ fontSize: 11.5 }}>{f.worker_names.join(", ")}</div>}
+      </td>
+      <td className="muted" style={{ fontSize: 12.5 }}>
+        started {when(f.created_at)}{f.ready_at && <>, up {when(f.ready_at)}</>}{f.torn_down_at && <>, destroyed {when(f.torn_down_at)}</>}
+      </td>
+    </tr>
+  );
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div className="section-title" style={{ marginBottom: 4 }}>Run fleets</div>
+      <div className="sub" style={{ marginBottom: 8 }}>
+        A run that scans from local workers gets a VPN gateway and workers of its own, built when it
+        starts and destroyed when it ends. The gateway holds the tunnel and never enrols, so it is not a
+        worker; this is where it shows. Its workers also appear under Local workers while the run lasts.
+      </div>
+      {list.length === 0 ? (
+        <div className="empty" style={{ padding: 14 }}>No run has had its own fleet in the last day.</div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Run</th><th>VPN gateway</th><th>Workers</th><th>When</th></tr></thead>
+            <tbody>
+              {live.map(row)}
+              {past.map(row)}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

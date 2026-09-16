@@ -110,6 +110,17 @@ func (s *Server) createEnrollmentToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // itoa is a tiny int-to-string helper (avoids importing strconv here).
+// listFleets is the Workers page's view of runs' own containers: the VPN
+// gateway (never a worker, so listed nowhere else) and the workers beside it.
+func (s *Server) listFleets(w http.ResponseWriter, r *http.Request) {
+	list, err := s.st.ListFleetViews(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"

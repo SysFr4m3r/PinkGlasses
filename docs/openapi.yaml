@@ -867,6 +867,22 @@ paths:
         "403": {$ref: "#/components/responses/e403"}
         "404": {$ref: "#/components/responses/e404"}
         "409": {$ref: "#/components/responses/e409"}
+  /api/v1/fleets:
+    get:
+      operationId: getFleets
+      summary: "runs' own fleets — the VPN gateway (tunnel state, exit address, VPN config) and the workers beside it, with the run and company — every fleet up or being built plus those ended in the last day"
+      x-required-role: viewer
+      security:
+        - session: []
+        - token: []
+        - proxy: []
+      responses:
+        "200": {description: ok}
+        "400": {$ref: "#/components/responses/e400"}
+        "401": {$ref: "#/components/responses/e401"}
+        "403": {$ref: "#/components/responses/e403"}
+        "404": {$ref: "#/components/responses/e404"}
+        "409": {$ref: "#/components/responses/e409"}
   /api/v1/pools:
     get:
       operationId: getPools

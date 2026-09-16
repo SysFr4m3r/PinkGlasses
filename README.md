@@ -297,6 +297,14 @@ enrols itself:
 docker compose up -d --scale worker=3
 ```
 
+**Run fleets on the Workers page.** While an active scan runs from local workers, the
+Workers page shows its fleet under *Run fleets*: the VPN gateway with the tunnel's state,
+the VPN configuration it uses and the exit address the target sees, and the workers beside
+it by name. The gateway never enrols — it only holds the tunnel — so it is not a worker and
+this is the one place it appears; its workers also show under *Local workers* while the run
+lasts. Fleets that ended in the last day stay listed as *destroyed*, with the address they
+had, so what a run did with its containers can be read after the fact.
+
 ### Managing workers
 
 Each worker row in **Workers** offers these actions. The `i` buttons on the *Status* and
