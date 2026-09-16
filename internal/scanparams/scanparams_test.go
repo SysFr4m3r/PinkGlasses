@@ -4,16 +4,16 @@ import "testing"
 
 func TestValidate_RejectsUnknownAndInjection(t *testing.T) {
 	bad := []map[string]string{
-		{"unknown_key": "1"},                       // not in the whitelist
-		{"ports": "80; rm -rf /"},                   // command injection
-		{"ports": "$(curl evil)"},                   // substitution
-		{"ports": "80`whoami`"},                     // backtick
-		{"naabu_rate": "9999999"},                   // out of range
-		{"naabu_rate": "-1"},                        // negative
-		{"naabu_rate": "abc"},                       // not int
-		{"nuclei_severity": "critical; drop"},       // enum with payload
-		{"dir_wordlist": "/etc/passwd"},             // path instead of id
-		{"katana_depth": "50"},                      // over max
+		{"unknown_key": "1"},                  // not in the whitelist
+		{"ports": "80; rm -rf /"},             // command injection
+		{"ports": "$(curl evil)"},             // substitution
+		{"ports": "80`whoami`"},               // backtick
+		{"naabu_rate": "9999999"},             // out of range
+		{"naabu_rate": "-1"},                  // negative
+		{"naabu_rate": "abc"},                 // not int
+		{"nuclei_severity": "critical; drop"}, // enum with payload
+		{"dir_wordlist": "/etc/passwd"},       // path instead of id
+		{"katana_depth": "50"},                // over max
 	}
 	for _, in := range bad {
 		if _, err := Validate(in); err == nil {

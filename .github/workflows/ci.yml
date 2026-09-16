@@ -1,0 +1,100 @@
+# Continuous integration: the checks a change has to pass before it lands.
+#
+# Three jobs run in parallel on every push to main and every pull request:
+#   go      — formatting, vet, the test suite (with the race detector). The
+#             suite includes the drift tests: every route documented in
+#             wiki/API.md, docs/openapi.yaml matching the router, .env.example
+#             agreeing with the subfinder sources the worker reads.
+#   web     — the SPA type-checks and builds.
+#   docker  — the control-plane image builds and the compose file is valid.
+# The worker image, which pulls a dozen tool images, builds only on pushes to
+# main: it is slow and a pull request rarely touches it.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go — fmt, vet, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then
+            echo "gofmt would change:"; echo "$unformatted"; exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        # -short skips nothing today, but lets a slow live test opt out later.
+        # Tests that need DNS egress skip themselves when they cannot resolve.
+        run: go test -race -short -count=1 ./...
+      - name: OpenAPI document is current
+        run: |
+          go run ./tools/openapi > /tmp/openapi.yaml
+          diff -u docs/openapi.yaml /tmp/openapi.yaml
+
+  web:
+    name: Web — typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: build (tsc -b && vite build)
+        run: npm run build
+
+  docker:
+    name: Docker — control-plane image and compose file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: compose file is valid
+        run: docker compose config -q
+      - name: build the control-plane image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  worker-image:
+    name: Docker — worker image
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build the worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.worker
+          push: false
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker

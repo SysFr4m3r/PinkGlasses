@@ -5,6 +5,10 @@
   </picture>
 </p>
 
+<p align="center">
+  <a href="https://github.com/cobbbex/PinkGlasses/actions/workflows/ci.yml"><img src="https://github.com/cobbbex/PinkGlasses/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
+
 A self-hosted web application that discovers and continuously monitors the external attack
 surface of one organization — domains, DNS, hosts, open ports, services, technologies, TLS
 and findings. DNSDumpster-style discovery output; Shodan-style drill-down. Scanning runs on
@@ -702,6 +706,18 @@ ASM_LOG_LEVEL=debug docker compose up -d worker
 narrow it further.
 
 ## Develop
+
+**CI runs the same checks on every push and pull request** (`.github/workflows/ci.yml`):
+gofmt, `go vet`, `go test -race` including the drift tests, the OpenAPI document against
+the router, the SPA build, the control-plane image build and the compose file; the worker
+image builds on pushes to `main`. Run them locally before pushing:
+
+```bash
+gofmt -l . && go vet ./... && go test -race -short ./...
+go run ./tools/openapi | diff -u docs/openapi.yaml -
+(cd web && npm ci && npm run build)
+docker compose config -q && docker build .
+```
 
 Backend (Go 1.23):
 
