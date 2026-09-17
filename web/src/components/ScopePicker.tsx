@@ -167,7 +167,7 @@ export default function ScopePicker({
             {onDelete && current && (
               <button type="button" className="combo-del" onClick={() => { setOpen(false); onDelete(); }}
                 title={`Delete ${current.name} with everything it owns`}>
-                Delete {current.name}…
+                Delete this company…
               </button>
             )}
           </div>
