@@ -894,8 +894,8 @@ This tool sends packets to real infrastructure. Read [Architecture](wiki/Archite
   perimeter only, which is also what closes the scanner-as-SSRF hole. The check runs
   twice: once on the target itself, and once on every address discovery resolves, since
   a name under an authorized target can still point at 127.0.0.1 or a cloud metadata
-  address. `ASM_ALLOW_PRIVATE_TARGETS=true` lifts it for a local test target such as
-  `tools/cookielab`, and must not be set on anything reachable by anyone else.
+  address. `ASM_ALLOW_PRIVATE_TARGETS=true` lifts it for a test target you run yourself on
+  a private network, and must not be set on anything reachable by anyone else.
 - **Cookie names are recorded; cookie values are not.** A name like `webvpn` or
   `BIGipServer...` identifies the appliance behind a port and is searchable with
   `cookie:webvpn*`; the value is a session token, so `Set-Cookie` is dropped from the

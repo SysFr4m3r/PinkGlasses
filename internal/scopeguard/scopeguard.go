@@ -58,8 +58,8 @@ func New(targets []domain.ScopeTarget) *Guard {
 // AllowPrivate opens the private ranges to active scanning.
 //
 // Off unless ASM_ALLOW_PRIVATE_TARGETS is set, and it exists for one reason:
-// scanning a target you are running locally, such as the cookie lab in
-// tools/cookielab. Turning it on removes the check that stops a name resolving
+// scanning a test target you are running yourself on a private network.
+// Turning it on removes the check that stops a name resolving
 // to 127.0.0.1 or 169.254.169.254 from turning this scanner into an SSRF
 // primitive against its own host, so it has no business being set on anything
 // reachable by someone else.

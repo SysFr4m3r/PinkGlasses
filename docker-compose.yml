@@ -39,7 +39,8 @@ services:
     environment:
       # Seals VPN configurations at rest. Without it they cannot be stored.
       ASM_SECRET_KEY: "${ASM_SECRET_KEY:-}"
-      # Lab only: lets the planner scan private addresses (tools/cookielab).
+      # Lets the planner scan private (RFC1918, loopback, link-local) addresses.
+      # Only for a target you run yourself on this network; off unless set.
       ASM_ALLOW_PRIVATE_TARGETS: "${ASM_ALLOW_PRIVATE_TARGETS:-false}"
       ASM_DATABASE_URL: postgres://asm:asm@postgres:5432/asm?sslmode=disable
       ASM_API_ADDR: ":8080"
@@ -90,8 +91,8 @@ services:
     build: .
     entrypoint: ["/usr/local/bin/scheduler"]
     environment:
-      # Lab only: lets the planner scan private addresses, which is how the
-      # cookielab target above is reachable. Off unless you set it.
+      # Lets the planner scan private addresses; must match the api's setting.
+      # Off unless you set it.
       ASM_ALLOW_PRIVATE_TARGETS: "${ASM_ALLOW_PRIVATE_TARGETS:-false}"
       ASM_DATABASE_URL: postgres://asm:asm@postgres:5432/asm?sslmode=disable
       # A run can bring up its own workers, behind a VPN gateway of its own.
@@ -220,14 +221,6 @@ services:
       # on a volume so a worker restart does not take them with it
       - workerspool:/var/cache/asm/spool
     depends_on: [gateway]
-
-  cookielab:
-    profiles: ["lab"]
-    build: {context: ., dockerfile: deploy/Dockerfile.cookielab}
-    environment:
-      PORT: "80"
-      # set to 1 to make /plain 404, so a finding can vanish and return
-      LAB_HIDE_PLAIN: "${LAB_HIDE_PLAIN:-}"
 
 # Volume names are pinned to what they were before the project was renamed.
 # Compose derives volume names from the project, so without this the rename

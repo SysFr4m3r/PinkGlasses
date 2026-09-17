@@ -128,15 +128,6 @@ Cisco ASA WebVPN, `BIGipServer<pool>` for an F5, `NSC_*` for Citrix — so the n
 identifies the appliance where the banner and title give nothing away. They are searchable
 across the whole inventory with `cookie:webvpn*`. A cookie's **value** is a session token
 and is never stored — `Set-Cookie` is dropped from the recorded headers, not kept verbatim.
-
-`tools/cookielab` is a one-page target that sets these cookies, so the capture and the
-search can be exercised without pointing the scanner at somebody else's appliance:
-
-```bash
-docker compose --profile lab up -d cookielab
-ASM_ALLOW_PRIVATE_TARGETS=true docker compose up -d api scheduler
-# add its container IP as an authorized ip target, scan, then: cookie:webvpn*
-```
 | **nuclei** | Runs only in the `vuln_check` stage, against each live web endpoint the probe found: default templates at severity *low* and above (per-run `nuclei_severity`), `ASM_NUCLEI_TEMPLATES` for a pinned or custom set. Tech detection is httpx alone; nuclei's tech templates were planned here and never wired. | PD |
 
 **Order:** httpx first (it decides which host:port pairs are actually web services), then
