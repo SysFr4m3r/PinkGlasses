@@ -2,6 +2,12 @@
 // (banners, HTTP titles, TLS subjects) are rendered as text by React by
 // default — never with dangerouslySetInnerHTML (wiki/Architecture.md §10.3).
 
+/** What a company owns — what deleting it removes; active_runs and live_fleets block a delete. */
+export interface ScopeFootprint {
+  name: string; target_groups: number; targets: number; names: number; hosts: number; services: number;
+  runs: number; active_runs: number; findings: number; screenshots: number;
+  vpn_configs: number; schedules: number; alert_channels: number; live_fleets: number;
+}
 export interface Scope {
   id: string; name: string; created_at: string;
   /** Who created it. Free text until real accounts exist; "local" by default. */
@@ -318,6 +324,9 @@ export const api = {
   scopes: (mine = false) =>
     req<Scope[] | null>("/scopes" + (mine ? "?mine=true" : "")).then((x) => x ?? []),
   createScope: (name: string) => req<Scope>("/scopes", { method: "POST", body: JSON.stringify({ name }) }),
+  scopeFootprint: (s: string) => req<ScopeFootprint>(`/scopes/${s}/footprint`),
+  deleteScope: (s: string) =>
+    req<{ deleted: boolean; artifacts_removed: number; artifacts_failed: number }>(`/scopes/${s}`, { method: "DELETE" }),
   summary: (s: string) => req<Summary>(`/scopes/${s}/summary`),
   targets: (s: string) => req<Target[] | null>(`/scopes/${s}/targets`).then((x) => x ?? []),
   addTarget: (s: string, body: unknown) =>

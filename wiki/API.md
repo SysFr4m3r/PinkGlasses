@@ -34,7 +34,7 @@ table below.
 |---|---|
 | **viewer** | read everything; create and revoke your own API tokens |
 | **operator** | companies, targets, scan profiles, alerts, wordlists — and starting runs |
-| **admin** | accounts, everyone's tokens, workers and enrollment, VPN configurations |
+| **admin** | accounts, everyone's tokens, workers and enrollment, VPN configurations, deleting a company |
 
 A route above your role answers `403` with the role it needs.
 
@@ -84,6 +84,8 @@ asset route is under a scope.
 |---|---|---|
 | `GET /scopes` | viewer | all companies; `?mine=true` narrows to ones you created |
 | `POST /scopes` | operator | `{name}` |
+| `GET /scopes/{scopeID}/footprint` | viewer | what the company owns, as counts: target groups, targets, names, hosts, services, runs, findings, screenshots, VPN configs, schedules, alert channels — and `active_runs` / `live_fleets`, which block a delete |
+| `DELETE /scopes/{scopeID}` | admin | delete the company with everything it owns — inventory, runs, findings, schedules, VPN configurations, alert channels — and remove its runs' screenshots and raw output from object storage. 409 while a run of it is going; answers `{deleted, artifacts_removed, artifacts_failed}` |
 | `GET /scopes/{scopeID}/summary` | viewer | dashboard counters: domains, ips, services, open_findings |
 | `GET /scopes/{scopeID}/target-groups` | viewer | the company's target groups, each with its entries and `authorized` (every entry active with a recorded authorization) |
 | `POST /scopes/{scopeID}/target-groups` | operator | `{name, values, tags, authorize}` — one group from a list of domains, IPs and CIDRs; `name` defaults to the first value; 409 if the name is taken |

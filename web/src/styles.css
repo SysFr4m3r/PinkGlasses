@@ -209,6 +209,10 @@ h2 { margin: 0 0 16px; } h3 { margin: 0; font-size: 15px; }
 }
 .combo-btn:hover { border-color: var(--accent); filter: none; }
 .combo-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-foot { display: flex; gap: 6px; align-items: stretch; }
+.combo-foot .combo-new { flex: 1; }
+.combo-del { background: none; border: 0; border-top: 1px solid var(--border); color: var(--crit); font-size: 12.5px; padding: 8px 10px; cursor: pointer; white-space: nowrap; }
+.combo-del:hover { text-decoration: underline; }
 .combo-caret { color: var(--muted); flex: none; margin-right: 3px; }
 .combo-panel {
   position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 40;

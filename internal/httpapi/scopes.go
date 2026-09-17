@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -28,6 +29,77 @@ func (s *Server) createScope(w http.ResponseWriter, r *http.Request) {
 	}
 	s.auditReq(r, "scope.create", sc.ID.String(), map[string]any{"name": sc.Name})
 	writeJSON(w, http.StatusCreated, sc)
+}
+
+// scopeFootprint says what a company owns, so the delete confirmation can
+// list it and say what stands in the way.
+func (s *Server) scopeFootprint(w http.ResponseWriter, r *http.Request) {
+	scopeID, err := uuid.Parse(chi.URLParam(r, "scopeID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad scope id")
+		return
+	}
+	f, ok, err := s.st.ScopeFootprint(r.Context(), scopeID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !ok {
+		writeErr(w, http.StatusNotFound, "company not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, f)
+}
+
+// deleteScope removes a company with everything it owns. Refused while a run
+// of it is going or its own containers are still up — stop those first — so
+// nothing is left scanning on behalf of a company that no longer exists.
+// Screenshots and raw output of its runs are removed from object storage
+// after the rows, best effort.
+func (s *Server) deleteScope(w http.ResponseWriter, r *http.Request) {
+	scopeID, err := uuid.Parse(chi.URLParam(r, "scopeID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad scope id")
+		return
+	}
+	f, ok, err := s.st.ScopeFootprint(r.Context(), scopeID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !ok {
+		writeErr(w, http.StatusNotFound, "company not found")
+		return
+	}
+	if f.ActiveRuns > 0 || f.LiveFleets > 0 {
+		writeErr(w, http.StatusConflict, "the company still has a run going; stop it before deleting the company")
+		return
+	}
+	keys, err := s.st.ScopeArtifactKeys(r.Context(), scopeID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if ok, err := s.st.DeleteScope(r.Context(), scopeID); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	} else if !ok {
+		writeErr(w, http.StatusNotFound, "company not found")
+		return
+	}
+	removed, failed := 0, 0
+	for _, k := range keys {
+		if err := s.obj.Delete(r.Context(), k); err != nil {
+			failed++
+			slog.Warn("could not remove a deleted company's artifact", "scope", scopeID, "key", k, "err", err)
+			continue
+		}
+		removed++
+	}
+	s.auditReq(r, "scope.delete", scopeID.String(), map[string]any{
+		"name": f.Name, "runs": f.Runs, "hosts": f.Hosts, "findings": f.Findings,
+		"artifacts_removed": removed, "artifacts_failed": failed})
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "artifacts_removed": removed, "artifacts_failed": failed})
 }
 
 // listScopes returns every company, or only the caller's own with ?mine=true.

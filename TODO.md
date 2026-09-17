@@ -811,3 +811,9 @@ several groups. The planner and launcher read a merged view — one row per valu
 if any group excludes it, otherwise authorized if any group authorizes it — so a run
 covers it once. Verified: shared value kept in both groups, scanned once, and left intact
 when the other group was deleted.
+
+- [x] 24.10 **Delete a company.** Admin only, from the company picker; the dialog counts
+      what goes, asks for the name typed back, and is refused while a run of the company is
+      going. Everything the company owns cascades in the database and its runs' screenshots
+      and raw output are removed from object storage. Verified 2026-09-17: 409 while a run
+      was going, 200 after stopping it with every row gone, 404 afterwards, audited.

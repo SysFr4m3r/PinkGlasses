@@ -535,6 +535,13 @@ shared, and it needs no company selected to open.
 Services with a screenshot offer a **Screenshot** button — on the host page per service,
 and in the Hosts list per row — which opens the captured page image.
 
+**Deleting a company.** An administrator can delete the selected company from the company
+picker (*Delete <name>…* at the foot of the list). The dialog counts what goes — target
+groups and entries, the whole inventory of names, hosts and services with its history, every
+run with its tasks and observations, screenshots, findings, schedules, VPN configurations and
+alert channels — asks for the name to be typed back, and refuses while a run of the company
+is still going. Workers, wordlists and accounts are not the company's and stay.
+
 **Mine / All companies.** The company picker can narrow the list to the companies
 you created. "You" is whatever `X-Forwarded-User` says, or `local` — so this tidies
 a shared list, it does not protect anything. Real accounts are Phase 17; until then

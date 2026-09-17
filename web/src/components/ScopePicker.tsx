@@ -7,12 +7,14 @@ import { Scope } from "../api";
  * search box makes the list navigable by typing.
  */
 export default function ScopePicker({
-  scopes, value, onChange, onNew, collapsed = false, mine, onMineChange, hiddenCount = 0,
+  scopes, value, onChange, onNew, onDelete, collapsed = false, mine, onMineChange, hiddenCount = 0,
 }: {
   scopes: Scope[];
   value: string;
   onChange: (id: string) => void;
   onNew: () => void;
+  /** Delete the selected company; only offered when the caller passes it (admins). */
+  onDelete?: () => void;
   collapsed?: boolean;
   /** Showing only the companies this user created. */
   mine: boolean;
@@ -158,9 +160,17 @@ export default function ScopePicker({
             )}
           </div>
 
-          <button type="button" className="combo-new" onClick={() => { setOpen(false); onNew(); }}>
-            + Add company
-          </button>
+          <div className="combo-foot">
+            <button type="button" className="combo-new" onClick={() => { setOpen(false); onNew(); }}>
+              + Add company
+            </button>
+            {onDelete && current && (
+              <button type="button" className="combo-del" onClick={() => { setOpen(false); onDelete(); }}
+                title={`Delete ${current.name} with everything it owns`}>
+                Delete {current.name}…
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

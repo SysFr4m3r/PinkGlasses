@@ -90,6 +90,86 @@ func (s *Store) AddTarget(ctx context.Context, t domain.ScopeTarget) (domain.Sco
 	return t, err
 }
 
+// ScopeFootprint counts what a company owns — what deleting it removes.
+type ScopeFootprint struct {
+	Name          string `json:"name"`
+	TargetGroups  int    `json:"target_groups"`
+	Targets       int    `json:"targets"`
+	Names         int    `json:"names"`
+	Hosts         int    `json:"hosts"`
+	Services      int    `json:"services"`
+	Runs          int    `json:"runs"`
+	ActiveRuns    int    `json:"active_runs"`
+	Findings      int    `json:"findings"`
+	Screenshots   int    `json:"screenshots"`
+	VPNConfigs    int    `json:"vpn_configs"`
+	Schedules     int    `json:"schedules"`
+	AlertChannels int    `json:"alert_channels"`
+	LiveFleets    int    `json:"live_fleets"`
+}
+
+// ScopeFootprint reports what a company owns. ActiveRuns and LiveFleets are
+// what stands in the way of deleting it.
+func (s *Store) ScopeFootprint(ctx context.Context, scopeID uuid.UUID) (ScopeFootprint, bool, error) {
+	var f ScopeFootprint
+	err := s.Pool.QueryRow(ctx, `
+		SELECT sc.name,
+		       (SELECT count(*) FROM target_group WHERE scope_id=$1),
+		       (SELECT count(*) FROM scope_target WHERE scope_id=$1),
+		       (SELECT count(*) FROM domain WHERE scope_id=$1),
+		       (SELECT count(*) FROM ip_address WHERE scope_id=$1),
+		       (SELECT count(*) FROM service sv JOIN ip_address ip ON ip.id=sv.ip_id WHERE ip.scope_id=$1),
+		       (SELECT count(*) FROM scan_run WHERE scope_id=$1),
+		       (SELECT count(*) FROM scan_run WHERE scope_id=$1 AND status IN ('queued','planning','running','paused')),
+		       (SELECT count(*) FROM finding WHERE scope_id=$1),
+		       (SELECT count(*) FROM service_observation so JOIN scan_run r ON r.id=so.run_id
+		          WHERE r.scope_id=$1 AND COALESCE(so.screenshot_key,'') <> '' AND so.screenshot_key NOT LIKE '%(not uploaded%'),
+		       (SELECT count(*) FROM vpn_config WHERE scope_id=$1),
+		       (SELECT count(*) FROM scan_schedule WHERE scope_id=$1),
+		       (SELECT count(*) FROM notification_channel WHERE scope_id=$1),
+		       (SELECT count(*) FROM run_fleet f JOIN scan_run r ON r.id=f.run_id WHERE r.scope_id=$1 AND f.status IN ('requested','up'))
+		FROM scope sc WHERE sc.id=$1`, scopeID).Scan(&f.Name, &f.TargetGroups, &f.Targets, &f.Names, &f.Hosts, &f.Services,
+		&f.Runs, &f.ActiveRuns, &f.Findings, &f.Screenshots, &f.VPNConfigs, &f.Schedules, &f.AlertChannels, &f.LiveFleets)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return f, false, nil
+	}
+	return f, err == nil, err
+}
+
+// ScopeArtifactKeys lists the object-storage keys of every run in a company,
+// so deleting the company can remove its screenshots and raw output.
+func (s *Store) ScopeArtifactKeys(ctx context.Context, scopeID uuid.UUID) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT k FROM (
+		  SELECT so.screenshot_key AS k FROM service_observation so JOIN scan_run r ON r.id=so.run_id WHERE r.scope_id=$1
+		  UNION SELECT so.raw_key FROM service_observation so JOIN scan_run r ON r.id=so.run_id WHERE r.scope_id=$1
+		) x WHERE COALESCE(k,'') <> '' AND k NOT LIKE '%(not uploaded%'`, scopeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	return keys, rows.Err()
+}
+
+// DeleteScope removes a company and, through the foreign keys, everything it
+// owns: targets and groups, names and hosts, runs with their tasks and
+// observations, findings, schedules, VPN configurations, alert channels.
+func (s *Store) DeleteScope(ctx context.Context, scopeID uuid.UUID) (bool, error) {
+	ct, err := s.Pool.Exec(ctx, `DELETE FROM scope WHERE id=$1`, scopeID)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
 // GetTarget returns one target of a scope.
 func (s *Store) GetTarget(ctx context.Context, scopeID, targetID uuid.UUID) (domain.ScopeTarget, bool, error) {
 	var t domain.ScopeTarget

@@ -87,6 +87,7 @@ func (s *Server) Routes() http.Handler {
 				v.Get("/scopes/{scopeID}/summary", s.scopeSummary)
 				v.Get("/scopes/{scopeID}/targets", s.listTargets)
 				v.Get("/scopes/{scopeID}/target-groups", s.listTargetGroups)
+				v.Get("/scopes/{scopeID}/footprint", s.scopeFootprint)
 
 				v.Get("/scan-params", s.listScanParamSpecs)
 				v.Get("/scopes/{scopeID}/scan-profiles", s.listScanProfiles)
@@ -187,6 +188,8 @@ func (s *Server) Routes() http.Handler {
 				// Enrolling a worker hands out a credential; scaling them
 				// creates containers on the host.
 				a.Post("/workers/enrollment-tokens", s.createEnrollmentToken)
+				// Deleting a company takes its whole inventory and history with it.
+				a.Delete("/scopes/{scopeID}", s.deleteScope)
 				a.Post("/workers/{workerID}/{action}", s.workerAction)
 				a.Delete("/workers/{workerID}", s.deleteWorker)
 			})

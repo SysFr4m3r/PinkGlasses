@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, atLeast, AuthStatus, Scope, UNAUTHENTICATED, User } from "./api";
@@ -149,6 +150,22 @@ function Shell({ me, defaultPw, onSignedOut }: {
     try { localStorage.setItem(MINE_KEY, next ? "1" : "0"); } catch { /* private mode */ }
   }
 
+  const [deleting, setDeleting] = useState(false);
+  async function removeCurrent() {
+    const sc = scopes.find((s) => s.id === scopeID);
+    if (!sc) return;
+    try {
+      const r = await api.deleteScope(sc.id);
+      setScopes((p) => p.filter((s) => s.id !== sc.id));
+      setAllScopes((p) => p.filter((s) => s.id !== sc.id));
+      setScopeID(scopes.find((s) => s.id !== sc.id)?.id ?? "");
+      setDeleting(false);
+      toast("ok", `Deleted "${sc.name}"${r.artifacts_failed ? ` — ${r.artifacts_failed} artifact(s) could not be removed` : ""}`);
+    } catch (e) {
+      toast("err", String(e).replace(/^Error:\s*/, ""));
+    }
+  }
+
   async function create() {
     try {
       const sc = await api.createScope(name);
@@ -188,6 +205,7 @@ function Shell({ me, defaultPw, onSignedOut }: {
           value={scopeID}
           onChange={setScopeID}
           onNew={() => setOpen(true)}
+          onDelete={atLeast(me.role, "admin") && scopeID ? () => setDeleting(true) : undefined}
           collapsed={collapsed}
           mine={mine}
           onMineChange={changeMine}
@@ -248,6 +266,10 @@ function Shell({ me, defaultPw, onSignedOut }: {
           } />
         </Routes>
       </main>
+
+      {deleting && scopeID && (
+        <DeleteCompany scope={scopes.find((s) => s.id === scopeID)!} onClose={() => setDeleting(false)} onConfirm={removeCurrent} />
+      )}
 
       <Modal
         title="Add a company" open={open} onClose={() => setOpen(false)}
@@ -384,5 +406,52 @@ function DefaultPasswordBanner() {
       for you — either way it has been seen by someone other than you. Change it under{" "}
       <strong>Change password</strong> at the foot of the sidebar.
     </div>
+  );
+}
+
+/**
+ * Deleting a company takes its whole inventory and history with it, so the
+ * dialog lists what that is, in counts fetched for this company, says what
+ * stands in the way, and asks for the name to be typed back.
+ */
+function DeleteCompany({ scope, onClose, onConfirm }: { scope: Scope; onClose: () => void; onConfirm: () => void }) {
+  const { data: f } = useQuery({ queryKey: ["scope-footprint", scope.id], queryFn: () => api.scopeFootprint(scope.id) });
+  const [typed, setTyped] = useState("");
+  const blocked = !!f && (f.active_runs > 0 || f.live_fleets > 0);
+  const n = (v: number, one: string, many: string) => `${v} ${v === 1 ? one : many}`;
+  return (
+    <Modal
+      title={`Delete ${scope.name}?`} open onClose={onClose}
+      footer={<>
+        <button className="ghost" onClick={onClose}>Keep it</button>
+        <button className="danger" disabled={!f || blocked || typed.trim() !== scope.name} onClick={onConfirm}>Delete company</button>
+      </>}
+    >
+      {!f ? <div className="muted">Counting what it owns…</div> : (
+        <>
+          {blocked && (
+            <div className="empty" style={{ textAlign: "left", borderColor: "var(--warn)", marginBottom: 12 }}>
+              A run of this company is still going. Stop it under Scan runs first; a company cannot be
+              deleted while anything scans on its behalf.
+            </div>
+          )}
+          <p style={{ marginTop: 0 }}>Everything the company owns is removed:</p>
+          <ul style={{ margin: "6px 0 10px", paddingLeft: 20, fontSize: 13 }}>
+            <li>{n(f.target_groups, "target group", "target groups")} with {n(f.targets, "entry", "entries")}</li>
+            <li>{n(f.names, "name", "names")}, {n(f.hosts, "host", "hosts")} and {n(f.services, "service", "services")} — the whole inventory, with its history</li>
+            <li>{n(f.runs, "run", "runs")}, with their tasks and observations, and {n(f.screenshots, "screenshot", "screenshots")} removed from object storage</li>
+            <li>{n(f.findings, "finding", "findings")}</li>
+            <li>{n(f.schedules, "scheduled scan", "scheduled scans")}, {n(f.vpn_configs, "VPN configuration", "VPN configurations")} and {n(f.alert_channels, "alert channel", "alert channels")}</li>
+          </ul>
+          <p className="muted" style={{ fontSize: 13 }}>
+            This cannot be undone. Workers, wordlists and accounts are not the company's and stay.
+          </p>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Type the company's name to confirm</label>
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={scope.name} autoFocus />
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
